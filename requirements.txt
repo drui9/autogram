@@ -1,0 +1,8 @@
+aiohttp
+loguru
+bottle
+pydantic
+requests
+watchdog
+python-dotenv
+alive-progress
