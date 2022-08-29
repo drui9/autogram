@@ -2,7 +2,7 @@
     <img src="./autogram.png" align="middle" alt="Autogram logo">
 <p>
 
-# One hella Asyncronous Telegram bot API wrapper!
+# An efficient asyncronous Telegram bot API wrapper!
 Autogram is an asyncrounous `configure and forget` telegram BOT API wrapper written in python using asyncio coroutine framework. 
 
 ```python
