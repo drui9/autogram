@@ -4,6 +4,7 @@
 @license: MIT
 """
 import os
+import sys
 import time
 import json
 import loguru
@@ -50,12 +51,12 @@ class Autogram:
         self.terminate = Event()
         # 
         self.setup_logger()
-    
+
     def __repr__(self) -> str:
         return str(vars(self))
 
     @loguru.logger.catch
-    def send_online(self,publicIP: str=None) -> threading.Thread:
+    def send_online(self, publicIP = '') -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
         if publicIP:
             hookPath = self.token.split(":")[-1]
@@ -66,7 +67,7 @@ class Autogram:
                 return json.dumps({'ok': True})
             # 
             def runServer(server: MyServer):
-                run(server=server,quiet=True)
+                run(server=server, quiet=True)
             # 
             server = MyServer(host=self.host,port=self.port)
             svr_thread = threading.Thread(target=runServer,args=(server,))
@@ -79,13 +80,14 @@ class Autogram:
         # 
         def launch():
             try:
-                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                if sys.platform != 'linux':
+                    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
                 asyncio.run(self.main_loop())
             except KeyboardInterrupt:
                 self.terminate.set()
                 _pending = self.requests.unfinished_tasks
                 if _pending:
-                    self.logger.info(f'[autogram]: {len(_pending)} update tasks...')
+                    self.logger.info(f'[autogram]: {_pending} update tasks...')
             except Exception:
                 raise
         self.logger.info(f'WebHook running on {self.host}:{self.port}')
@@ -98,7 +100,7 @@ class Autogram:
     def setup_logger(self):
         """prepare logger and log levels"""
         self.logger = loguru.logger
-    
+
     def getMe(self, me: Dict):
         """receive and parse getMe request."""
         self.logger.info('*** connected... ***')
@@ -239,7 +241,7 @@ class Autogram:
                         'params': {
                             "limit": 81,
                             "offset": self.update_offset,
-                            "timeout": self.timeout.total -1,
+                            "timeout": self.timeout.total - 1,
                         }
                     }
                     if not kw.get('params'):
@@ -281,8 +283,8 @@ class Autogram:
                             await asyncio.sleep(0)
                         self.timeout = aiohttp.ClientTimeout(4)
                         continue
-    
-    def webRequest(self,url: str, params: dict=None, files =None):
+
+    def webRequest(self, url: str, params={}, files=None):
         params = params or {}
         # send request
         if files:
@@ -295,8 +297,8 @@ class Autogram:
 
     def sendChatAction(self, chat_id: int, action: str):
         params = {
-        'chat_id': chat_id,
-        'action': action
+            'chat_id': chat_id,
+            'action': action
         }
         return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
 
@@ -330,8 +332,7 @@ class Autogram:
             self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
 
     @loguru.logger.catch()
-    def sendMessage(self, chat_id: int, text: str, params: dict=None):
-        params = params or dict()
+    def sendMessage(self, chat_id: int, text: str, params={}):
         url = f'{self.base_url}/sendMessage'
         self.requests.put((url, {
             'params': {
@@ -352,8 +353,7 @@ class Autogram:
         },None))
 
     @loguru.logger.catch()
-    def editMessageText(self, chat_id: int, msg_id: int, text: str, params: dict = None):
-        params = params or {}
+    def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
         url = f'{self.base_url}/editMessageText'
         self.requests.put((url,{
             'params': {
@@ -364,7 +364,7 @@ class Autogram:
         },None))
 
     @loguru.logger.catch()
-    def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params: dict=None):
+    def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}):
         url = f'{self.base_url}/editMessageCaption'
         self.requests.put((url, {
             'params': {
@@ -375,8 +375,7 @@ class Autogram:
         }, None))
 
     @loguru.logger.catch()
-    def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params: dict=None):
-        params = params or {}
+    def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}):
         url = f'{self.base_url}/editMessageReplyMarkup'
         self.requests.put((url,{
             'params': {

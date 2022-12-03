@@ -7,13 +7,13 @@ from watchdog.events import FileSystemEventHandler
 # 
 from autogram import Autogram
 from autogram.updates.message import Message
+from dotenv import load_dotenv
 
-
+load_dotenv()
 
 @Message.addHandler
 def textHandler(message: Message):
     print(message.attachments)
-
 
 # hot reload watcher
 class Watcher(FileSystemEventHandler):
@@ -22,8 +22,10 @@ class Watcher(FileSystemEventHandler):
         self.launch()
 
     def launch(self):
-        pub_addr = os.getenv('PUBLIC_URL')
-        token = os.getenv('TELEGRAM_TOKEN')
+        pub_addr = os.getenv('PUBLIC_URL') or ''
+        token = os.getenv('TELEGRAM_TOKEN') or ''
+        if not token:
+            raise RuntimeError('Telegram token not in environment')
         self.bot = Autogram(token)
         self.bot_thread = self.bot.send_online(pub_addr)
 

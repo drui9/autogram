@@ -1,25 +1,10 @@
 from setuptools import setup, find_packages
-from collections import namedtuple
-
-Dependencies = namedtuple('Dependencies',['dev','release'])
 
 
 def dependencies():
-    release, dev = list(), list()
-    release_marker = '[packages]'
-    with open('Pipfile', 'r') as dfile:
-        lines = dfile.read().split(release_marker)[1].split('\n')
-        stop_idx = lines.index('', 1)
-        for i in range(1, stop_idx):
-            dep = lines[i]
-            if d := dep.strip():
-                release.append(d.split('=')[0])
-        stop_idx += 1  # for blank line after
-        for i in range(stop_idx + 1, lines.index('', stop_idx + 1)):
-            dep = lines[i]
-            if d := dep.strip():
-                dev.append(d.split('=')[0])
-    return Dependencies(dev=dev, release= release)
+    with open('requirements.txt', 'r') as rfile:
+        depends = [i.strip() for i in rfile.readlines()]
+    return depends
 
 
 def readme():
@@ -28,11 +13,11 @@ def readme():
 
 
 setup(
+    version='1.1',
     name='autogram',
-    version='1.2',
     author='sp3rtah',
-    description='Telegram bot with batteries included!',
-    long_description=readme(),
     packages=find_packages(),
-    install_requires=dependencies().release
+    long_description=readme(),
+    install_requires=dependencies(),
+    description='Telegram bot with inbuilt batteries!'
 )
