@@ -3,29 +3,21 @@ from typing import Dict, Callable
 from autogram import chat_actions
 
 attachments = [
-    'animation',
-    'document',
-    'location',
-    'contact',
-    'sticker',
-    'voice',
-    'video',
-    'poll',
+    'animation', 'document', 'location', 'contact',
+    'sticker', 'voice', 'video', 'poll',
 ]
-
 
 class Message(UpdateBase):
     handler = None
     name = 'message'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.chat = update.pop('chat')
         self.id = update.pop('message_id')
         self.date = update.pop('date')
-        self.chat = update.pop('chat')
         self.sender = update.pop('from')
         self.attachments = update
-        #
+        ##
         if handler:=Message.handler:
             handler(self)
     
@@ -53,16 +45,13 @@ class Message(UpdateBase):
         self.autogram.sendChatAction(self.chat['id'], chat_actions.typing)
         self.autogram.sendMessage(self.chat['id'], text)
 
-    def forward(self):
-        pass
-
 
 class editedMessage(UpdateBase):
     handler = None
     name = 'edited_message'
     
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'editedMessage: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):

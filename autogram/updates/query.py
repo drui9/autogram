@@ -7,7 +7,7 @@ class callbackQuery(UpdateBase):
     name = 'callback_query'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'callbackQuery: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):
@@ -19,7 +19,7 @@ class shippingQuery(UpdateBase):
     name = 'shipping_query'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'shippingQuery: {update}')
     
     @classmethod
     def addHandler(cls, handler: Callable):
@@ -31,7 +31,7 @@ class precheckoutQuery(UpdateBase):
     name = 'pre_checkout_query'
     
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'precheckoutQuery: {update}')
     
     @classmethod
     def addHandler(cls, handler: Callable):

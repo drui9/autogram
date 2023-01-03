@@ -6,7 +6,7 @@ class Poll(UpdateBase):
     name = 'poll'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'Poll: {update}')
     
     @classmethod
     def addHandler(cls, handler: Callable):
@@ -18,7 +18,7 @@ class pollAnswer(UpdateBase):
     name = 'poll_answer'
     
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'pollAnswer: {update}')
     
     @classmethod
     def addHandler(cls, handler: Callable):

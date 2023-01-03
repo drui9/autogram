@@ -3,9 +3,7 @@
 @url: https://sp3rtah.github.io/sp3rtah
 @license: MIT
 """
-import os
 import sys
-import time
 import json
 import loguru
 import asyncio
@@ -27,15 +25,17 @@ from bottle import request, response, post, run
 class Autogram:
     api_url = 'https://api.telegram.org/'
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, max_retries: int = 7, tcp_timeout: int = 6):
         """
         class Autogram:
         """
         self.token = token
+        self.max_retries = max_retries
+        self.tcp_timeout = tcp_timeout
         self._initialize_()
 
     def _initialize_(self):
-        self.timeout = aiohttp.ClientTimeout(4)
+        self.timeout = aiohttp.ClientTimeout(self.tcp_timeout)
         self.base_url = f'{Autogram.api_url}bot{self.token}'
         # 
         self.routines = set()
@@ -76,8 +76,8 @@ class Autogram:
             svr_thread.start()
             #
             self.webhook = f'{publicIP}/{hookPath}'
-            self.logger.info(f'Webhook: {self.webhook}')
-        # 
+            self.logger.info(f'Webhook set successfully...')
+        #
         def launch():
             try:
                 if sys.platform != 'linux':
@@ -113,7 +113,10 @@ class Autogram:
             parser = None
             # parse update
             if payload:=update.get(Message.name):
-                parser = Message
+                if payload['chat']['type'] == 'private':
+                    parser = Message
+                else:
+                    parser = Notification
             elif payload:=update.get(editedMessage.name):
                 parser = editedMessage
             elif payload:=update.get(channelPost.name):
@@ -160,7 +163,7 @@ class Autogram:
     async def main_loop(self):
         """Main control loop"""
         self.logger.debug('Main loop started...')
-        self.routines.add(asyncio.create_task(self.aioWebRequest()))
+        processor = asyncio.create_task(self.aioWebRequest())
         self.requests.put((f'{self.base_url}/getMe',None,self.getMe))
         if self.webhook:
             url = f'{self.base_url}/setWebhook'
@@ -174,65 +177,52 @@ class Autogram:
                 if info['url']:
                     self.deleteWebhook()
             self.getWebhookInfo(check_webhook)
-        await asyncio.sleep(0)  # wait for init to finish
-        while not self.terminate.is_set():
-            if not self.requests.empty():
-                await asyncio.sleep(0)
-                continue
-            if not self.webhook:    ## use short polling
-                params = {
-                    'params': {
-                        'offset': self.update_offset
-                    }
-                }
-                url = f'{self.base_url}/getUpdates'
-                self.requests.put((url,params,self.updateRouter))
-            await asyncio.sleep(0)
-        # 
-        if not self.terminate.is_set():
-            self.terminate.set()
-            await asyncio.gather(*self.routines)
+        ##
+        await asyncio.sleep(0)    # allow getMe to run
+        await processor
+            
+        ## done processing. terminate
+        self.terminate.set()
+        await asyncio.gather(*self.routines)
         self.logger.debug('Main loop terminated.')
 
-    @loguru.logger.catch()
     @contextmanager
     def get_request(self):
-        """fetch a new webrequest task from pending tasks"""
+        """fetch pending or failed task from tasks"""
         if self.failed:
-            self.logger.info('Fetching failed request...')
+            self.logger.info('Retrying failed request...')
             yield self.failed
-        elif self.requests.empty():
-            yield None
+        elif self.webhook:
+            yield self.requests.get(block=True)
         else:
-            yield self.requests.get(block=False)
+            yield None
 
     @loguru.logger.catch()
     async def aioWebRequest(self):
         """Make asynchronous requests to the Telegram API"""
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
-            max_fail_count = 12
             failed_requests = 0
-            prev_count = 0
             self.failed = None
 
+            ## waiting loop
             while not self.terminate.is_set():
-                if failed_requests > max_fail_count:
-                    self.logger.critical(f'Too many failed requests: {failed_requests}. Shutting down...')
-                    self.terminate.set()
-                    break
-
-                if failed_requests > prev_count:
-                    prev_count = failed_requests
-                    if failed_requests > 4:
-                        self.timeout = aiohttp.ClientTimeout(failed_requests)
-                    if self.requests.empty():
-                        self.logger.debug(f'Last request failed. Retrying in {failed_requests}...')
-                        await asyncio.sleep(failed_requests)
-                    self.logger.debug(f'Retrying...')
+                if self.max_retries:
+                    if failed_requests > self.max_retries:
+                        self.logger.critical(f'Maximum retries reached: {failed_requests}. Shutting down...')
+                        self.terminate.set()
+                        break
                 # 
                 with self.get_request() as request:
                     if not request:
-                        await asyncio.sleep(0)
+                        ## no webhook? create getJob task
+                        if not self.webhook:
+                            params = {
+                                'params': {
+                                    'offset': self.update_offset
+                                }
+                            }
+                            url = f'{self.base_url}/getUpdates'
+                            self.requests.put((url,params,self.updateRouter))
                         continue
                     link, kw, callback = request
                     kw = kw or dict()
@@ -247,8 +237,10 @@ class Autogram:
                         kw.update(**defaults)
                     else:
                         kw['params'] |= defaults['params']
+                    ##
+                    error_detected = False
                     try:
-                        self.logger.debug(f'get: {link.split("/")[-1]} [timeout]: {self.timeout.total}')
+                        self.logger.debug(f'get: {link.split("/")[-1]}')
                         async with session.get(link,**kw) as resp:
                             if resp.ok:
                                 data = await resp.json()
@@ -263,33 +255,38 @@ class Autogram:
                                 self.logger.critical(f'{resp.status}: {await resp.json()}: {link}: {kw}: {callback}')
                                 self.terminate.set()
                                 break
-                    except aiohttp.client_exceptions.ClientConnectorError as e:
-                        self.logger.critical(f'[terminate]: {str(e)}')
-                        self.terminate.set()
-                        break
-                    except asyncio.exceptions.TimeoutError as e:
-                        failed_requests += 1
-                        self.logger.critical(f'[fails: {failed_requests}]: timeout: {link.split("/")[-1]}')
-                        self.failed = (link,kw,callback)
                     except KeyboardInterrupt:
                         self.terminate.set()
+                    except aiohttp.client_exceptions.ClientConnectorError as e:
+                        self.terminate.set()
+                        self.logger.exception(e)
+                    except aiohttp.client_exceptions.ClientOSError as e:
+                        error_detected = True
+                    except asyncio.exceptions.TimeoutError as e:
+                        error_detected = True
                     except Exception as e:
                         self.terminate.set()
                         self.logger.exception(e)
-                    # 
-                    if failed_requests == 0:
-                        if self.requests.empty():
-                            await asyncio.sleep(0)
-                        self.timeout = aiohttp.ClientTimeout(4)
-                        continue
+                    finally:
+                        if error_detected:
+                            failed_requests += 1
+                            self.logger.exception(e)
+                            self.failed = (link,kw,callback)
 
+
+    @loguru.logger.catch()
     def webRequest(self, url: str, params={}, files=None):
         params = params or {}
         # send request
-        if files:
-            res = _requests.get(url,params=params,files=files)
-        else:
-            res = _requests.get(url,params=params)
+        try:
+            if files:
+                res = _requests.get(url,params=params,files=files)
+            else:
+                res = _requests.get(url,params=params)
+        except Exception as e:
+            self.logger.exception(e)
+            return
+        ##
         if not res.ok:
             return False, res, url
         return True, json.loads(res.text)['result']

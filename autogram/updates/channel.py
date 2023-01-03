@@ -6,7 +6,7 @@ class channelPost(UpdateBase):
     name = 'channel_post'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'channelPost: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):
@@ -18,7 +18,7 @@ class editedChannelPost(UpdateBase):
     name = 'edited_channel_post'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'editedChannelPost: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):

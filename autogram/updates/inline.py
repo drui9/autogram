@@ -6,7 +6,7 @@ class inlineQuery(UpdateBase):
     name = 'inline_query'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'inlineQuery: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):
@@ -18,7 +18,7 @@ class chosenInlineResult(UpdateBase):
     name = 'chosen_inline_result'
 
     def __init__(self, update: Dict):
-        print(update)
+        self.autogram.logger.debug(f'chosenInlineResult: {update}')
 
     @classmethod
     def addHandler(cls, handler: Callable):

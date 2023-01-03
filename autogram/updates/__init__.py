@@ -11,6 +11,7 @@ class UpdateBase(ABC):
     def filter_updates(cls):
         # todo: filter updates
         filtered = {}
+        print(filtered)
         return json.dumps(filtered)
 
     @abstractclassmethod
@@ -29,8 +30,12 @@ from .message import Message, editedMessage
 from .poll import Poll, pollAnswer
 from .query import callbackQuery, shippingQuery, precheckoutQuery
 
+## extras
+from .notices import Notification
+
 __all__ = [
     'UpdateBase',
+    'Notification',
     'Poll', 'pollAnswer', 
     'Message','editedMessage', 
     'channelPost', 'editedChannelPost',

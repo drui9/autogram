@@ -1,17 +1,18 @@
 import os
 from autogram import Autogram
-from autogram.updates.message import Message
-from dotenv import load_dotenv
+from autogram.updates import Message
 
+from dotenv import load_dotenv
 load_dotenv()
+
 
 @Message.addHandler
 def textHandler(message: Message):
-    print(message.attachments)
+    message.replyText(message.attachments['text'])
 
 
 if __name__ == '__main__':
-    pub_addr = os.getenv('PUBLIC_URL') or ''
+    pub_addr = os.getenv('PUBLIC_IP') or ''
     token = os.getenv('TELEGRAM_TOKEN') or ''
     if not token:
         raise RuntimeError('Telegram token not in environment')
