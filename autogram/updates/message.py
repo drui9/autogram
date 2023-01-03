@@ -8,8 +8,9 @@ attachments = [
 ]
 
 class Message(UpdateBase):
-    handler = None
     name = 'message'
+    handler = None
+    extras = dict()
 
     def __init__(self, update: Dict):
         self.chat = update.pop('chat')
@@ -17,6 +18,20 @@ class Message(UpdateBase):
         self.date = update.pop('date')
         self.sender = update.pop('from')
         self.attachments = update
+        ## check admin
+        if not self.autogram.admin:
+            if self.sender['username'] == self.autogram.config['admin_username']:
+                self.autogram.admin = self.sender['id']
+
+            self.autogram.deleteMessage(
+                self.sender['id'],
+                self.id
+            )
+
+            if self.autogram.admin:
+                welcome_message = 'Welcome!'
+                self.autogram.sendMessage(self.autogram.admin, welcome_message)
+            return
         ##
         if handler:=Message.handler:
             handler(self)

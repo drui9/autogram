@@ -24,28 +24,26 @@ from bottle import request, response, post, run
 
 class Autogram:
     api_url = 'https://api.telegram.org/'
+    config = default_config
 
-    def __init__(self, token: str, max_retries: int = 7, tcp_timeout: int = 6):
+    def __init__(self, config: Dict):
         """
         class Autogram:
         """
-        self.token = token
-        self.max_retries = max_retries
-        self.tcp_timeout = tcp_timeout
+        self.config = config
+        self.config['telegram_token'] = config['telegram_token']
         self._initialize_()
 
     def _initialize_(self):
-        self.timeout = aiohttp.ClientTimeout(self.tcp_timeout)
-        self.base_url = f'{Autogram.api_url}bot{self.token}'
+        self.timeout = aiohttp.ClientTimeout(self.config['tcp_timeout'])
+        self.base_url = f"{Autogram.api_url}bot{self.config['telegram_token']}"
         # 
+        self.admin = None
         self.routines = set()
-        self.admin = None       # bot system admin
-        self.groups = set()     # groups we're in
-        self.channels = set()   # channels we're in
         # 
         self.port = 4004
-        self.host = '0.0.0.0'
         self.webhook = None
+        self.host = '0.0.0.0'
         self.update_offset = 0
         self.requests = Queue()
         self.terminate = Event()
@@ -56,10 +54,10 @@ class Autogram:
         return str(vars(self))
 
     @loguru.logger.catch
-    def send_online(self, publicIP = '') -> threading.Thread:
+    def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if publicIP:
-            hookPath = self.token.split(":")[-1]
+        if self.config['public_ip']:
+            hookPath = self.config['telegram_token'].split(":")[-1]
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
@@ -75,7 +73,7 @@ class Autogram:
             svr_thread.daemon = True
             svr_thread.start()
             #
-            self.webhook = f'{publicIP}/{hookPath}'
+            self.webhook = f"{self.config['public_ip']}/{hookPath}"
             self.logger.info(f'Webhook set successfully...')
         #
         def launch():
@@ -147,6 +145,8 @@ class Autogram:
             if not parser:
                 return
             else:
+                if not self.admin and parser.name != 'message':
+                    return
                 parser.autogram = self
                 parse_thread = threading.Thread(target=parser,args=(payload,))
                 parse_thread.daemon = True
@@ -206,8 +206,8 @@ class Autogram:
 
             ## waiting loop
             while not self.terminate.is_set():
-                if self.max_retries:
-                    if failed_requests > self.max_retries:
+                if self.config['max_retries']:
+                    if failed_requests > self.config['max_retries']:
                         self.logger.critical(f'Maximum retries reached: {failed_requests}. Shutting down...')
                         self.terminate.set()
                         break
@@ -238,7 +238,7 @@ class Autogram:
                     else:
                         kw['params'] |= defaults['params']
                     ##
-                    error_detected = False
+                    error_detected = None
                     try:
                         self.logger.debug(f'get: {link.split("/")[-1]}')
                         async with session.get(link,**kw) as resp:
@@ -260,17 +260,19 @@ class Autogram:
                     except aiohttp.client_exceptions.ClientConnectorError as e:
                         self.terminate.set()
                         self.logger.exception(e)
+                        error_detected = e
                     except aiohttp.client_exceptions.ClientOSError as e:
-                        error_detected = True
+                        error_detected = e
                     except asyncio.exceptions.TimeoutError as e:
-                        error_detected = True
+                        error_detected = e
                     except Exception as e:
                         self.terminate.set()
                         self.logger.exception(e)
+                        error_detected = e
                     finally:
                         if error_detected:
                             failed_requests += 1
-                            self.logger.exception(e)
+                            print(error_detected)
                             self.failed = (link,kw,callback)
 
 
@@ -284,6 +286,7 @@ class Autogram:
             else:
                 res = _requests.get(url,params=params)
         except Exception as e:
+            self.logger.critical(f'webRequest failed: {url.split("/")[-1]}')
             self.logger.exception(e)
             return
         ##
@@ -320,7 +323,7 @@ class Autogram:
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):
-        url = f'https://api.telegram.org/file/bot{self.token}/{file_path}'
+        url = f"https://api.telegram.org/file/bot{self.config['telegram_token']}/{file_path}"
         res = _requests.get(url)
         if res.ok:
             return res.content

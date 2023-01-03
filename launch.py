@@ -1,9 +1,5 @@
-import os
-from autogram import Autogram
 from autogram.updates import Message
-
-from dotenv import load_dotenv
-load_dotenv()
+from autogram import Autogram, load_config
 
 
 @Message.addHandler
@@ -12,10 +8,6 @@ def textHandler(message: Message):
 
 
 if __name__ == '__main__':
-    pub_addr = os.getenv('PUBLIC_IP') or ''
-    token = os.getenv('TELEGRAM_TOKEN') or ''
-    if not token:
-        raise RuntimeError('Telegram token not in environment')
-    bot = Autogram(token)
-    bot_thread = bot.send_online(pub_addr)
+    bot = Autogram(config = load_config())
+    bot_thread = bot.send_online()
     bot_thread.join()
