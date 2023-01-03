@@ -1,6 +1,6 @@
 """
 @author: The Alchemist
-@url: https://github.com/users/sp3rtah
+@url: https://sp3rtah.github.io/sp3rtah
 @license: MIT
 """
 import os
@@ -13,7 +13,7 @@ import aiohttp
 import requests as _requests
 from queue import Queue
 from threading import Event
-from typing import Dict, Tuple, List
+from typing import Dict, List
 from contextlib import contextmanager
 from typing import Callable
 import threading
@@ -74,7 +74,7 @@ class Autogram:
             svr_thread.name = 'Bottle Server'
             svr_thread.daemon = True
             svr_thread.start()
-            # 
+            #
             self.webhook = f'{publicIP}/{hookPath}'
             self.logger.info(f'Webhook: {self.webhook}')
         # 
@@ -90,7 +90,6 @@ class Autogram:
                     self.logger.info(f'[autogram]: {_pending} update tasks...')
             except Exception:
                 raise
-        self.logger.info(f'WebHook running on {self.host}:{self.port}')
         worker = threading.Thread(target=launch)
         worker.name = 'Autogram'
         worker.daemon = True

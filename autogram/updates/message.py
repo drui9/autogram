@@ -19,13 +19,13 @@ class Message(UpdateBase):
     name = 'message'
 
     def __init__(self, update: Dict):
+        print(update)
         self.id = update.pop('message_id')
         self.date = update.pop('date')
         self.chat = update.pop('chat')
         self.sender = update.pop('from')
         self.attachments = update
-        # 
-        self.autogram.terminate.set()
+        #
         if handler:=Message.handler:
             handler(self)
     
