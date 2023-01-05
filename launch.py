@@ -1,10 +1,13 @@
 from autogram.updates import Message
 from autogram import Autogram, load_config
 
+@Message.addAdminHandler
+def adminHandler(message: Message):
+    message.replyText('command-mode')
 
 @Message.addHandler
-def textHandler(message: Message):
-    message.replyText(message.attachments['text'])
+def guestHandler(message: Message):
+    message.replyText("Guest, welcome!")
 
 
 if __name__ == '__main__':

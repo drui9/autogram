@@ -39,6 +39,7 @@ class Autogram:
         self.base_url = f"{Autogram.api_url}bot{self.config['telegram_token']}"
         # 
         self.admin = None
+        self.deputy_admin = None
         self.routines = set()
         # 
         self.port = 4004
