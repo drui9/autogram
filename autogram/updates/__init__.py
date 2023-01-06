@@ -1,4 +1,5 @@
 from abc import ABC, abstractclassmethod
+from typing import Callable
 from loguru import logger
 import json
 
@@ -13,10 +14,6 @@ class UpdateBase(ABC):
         filtered = {}
         print(filtered)
         return json.dumps(filtered)
-
-    @abstractclassmethod
-    def addHandler(cls):
-        pass
 
     def __init__(self):
         self.autogram = UpdateBase.autogram
@@ -36,8 +33,8 @@ from .notices import Notification
 __all__ = [
     'UpdateBase',
     'Notification',
-    'Poll', 'pollAnswer', 
-    'Message','editedMessage', 
+    'Poll', 'pollAnswer',
+    'Message','editedMessage',
     'channelPost', 'editedChannelPost',
     'inlineQuery', 'chosenInlineResult',
     'chatMember', 'myChatMember', 'chatJoinRequest',

@@ -180,8 +180,10 @@ class Autogram:
             self.getWebhookInfo(check_webhook)
         ##
         await asyncio.sleep(0)    # allow getMe to run
+        self.logger.debug('started processing')
         await processor
-            
+        self.logger.debug('done processing')
+
         ## done processing. terminate
         self.terminate.set()
         await asyncio.gather(*self.routines)
@@ -193,10 +195,15 @@ class Autogram:
         if self.failed:
             self.logger.info('Retrying failed request...')
             yield self.failed
+            return
         elif self.webhook:
+            self.logger.debug('Blocking requests.get()')
             yield self.requests.get(block=True)
-        else:
-            yield None
+            return
+        if not self.requests.empty():
+            yield self.requests.get(block=False)
+            return
+        yield None
 
     @loguru.logger.catch()
     async def aioWebRequest(self):
@@ -223,8 +230,9 @@ class Autogram:
                                 }
                             }
                             url = f'{self.base_url}/getUpdates'
-                            self.requests.put((url,params,self.updateRouter))
-                        continue
+                            request = (url,params,self.updateRouter)
+                        else:
+                            continue
                     link, kw, callback = request
                     kw = kw or dict()
                     defaults = {
@@ -253,7 +261,7 @@ class Autogram:
                                    failed_requests -= 1
                                    self.failed = None
                             else:
-                                self.logger.critical(f'{resp.status}: {await resp.json()}: {link}: {kw}: {callback}')
+                                self.logger.critical(f"{resp.status},{await resp.json()} (endpoint:{link.split('/')[-1]}: kw: {kw}: callback: {callback})")
                                 self.terminate.set()
                                 break
                     except KeyboardInterrupt:
@@ -343,7 +351,7 @@ class Autogram:
 
     @loguru.logger.catch()
     def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
-        url = f'{self.base_url}/sendMessage'
+        url = f'{self.base_url}/forwardMessage'
         self.requests.put((url,{
             'params': {
                 'chat_id': chat_id,
