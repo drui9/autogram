@@ -1,3 +1,4 @@
+import os
 from autogram.updates import Message
 from autogram import Autogram, load_config
 
@@ -24,17 +25,21 @@ def shutdownCommand(msg: Message):
 def messageHandler(msg: Message):
     msg.replyText(msg.text)
 
+@Message.onMessageType('voice')
+@Message.onMessageType('audio')
+@Message.onMessageType('photo')
+@Message.onMessageType('video')
 @Message.onMessageType('document')
-def documentHandler(msg: Message):
-    with open(msg.document['name'], 'wb') as document:
-        document.write(msg.document['bytes'])
+@Message.onMessageType('video_note')
+def fileHandler(msg: Message):
+    temp_dir = 'Downloads'
+    if not os.path.exists(temp_dir):
+        os.mkdir(temp_dir)
+    file_path = f"{temp_dir}/{msg.file['name']}"
+    with open(file_path, 'wb') as file:
+        file.write(msg.file['bytes'])
     msg.deleteMessage()
 
-@Message.onMessageType('photo')
-def documentHandler(msg: Message):
-    with open(msg.photo['name'], 'wb') as photo:
-        photo.write(msg.photo['bytes'])
-    msg.deleteMessage()
 
 if __name__ == '__main__':
     bot = Autogram(config = load_config())

@@ -9,6 +9,9 @@ __pycache__/
 # config files
 autogram.json
 
+# temp dir 
+Downloads/
+
 # Distribution / packaging
 .Python
 build/

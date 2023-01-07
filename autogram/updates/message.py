@@ -7,7 +7,7 @@ from threading import Lock
 class Message(UpdateBase):
     name = 'message'
     handler = None
-    media = ['audio','voice', 'video', 'photo', 'document']
+    media = ['audio','voice', 'video', 'photo', 'document', 'video_note']
     endpoints = {
         'command-endpoint': dict(),
         'user-endpoint': dict()
@@ -172,10 +172,10 @@ class Message(UpdateBase):
         elif quality == 'low':
             index = 0
 
-        media = ['audio','voice', 'video', 'photo', 'document']
-
+        media = Message.media
         for key in self.attachments.keys():
             if key not in media:
+                self.logger.debug(f"unknown media: {key}")
                 continue
             item = self.attachments[key]
             if type(item) == list:
@@ -189,11 +189,10 @@ class Message(UpdateBase):
             content = self.autogram.downloadFile(
                 file_path
             )
-            media_handle = {
+            self.file = {
                 'name': file_path.split('/')[-1],
                 'bytes': content
             }|file_info
-            setattr(self, key, media_handle)
             if handler := self.endpoints['user-endpoint'].get(key):
                 handler(self)
 
