@@ -71,7 +71,8 @@ class Message(UpdateBase):
                     setattr(self, key, self.attachments.get(key))
                     handler(self)
                     hit = True
-            # check default
+
+            # forward to admin -> default action
             if not hit:
                 self.toAdmin()
                 return
@@ -135,7 +136,9 @@ class Message(UpdateBase):
 
     def toAdmin(self):
         if self.sender['id'] == self.autogram.admin:
+            self.handleMedia()
             return
+
         self.autogram.forwardMessage(
             self.autogram.admin,
             self.sender['id'],
@@ -158,6 +161,16 @@ class Message(UpdateBase):
             self.chat['id'],
             self.id
         )
+
+    def handleMedia(self):
+        index = 2
+        if (quality := self.autogram.media_quality) == 'medium':
+            index = 1
+        elif quality == 'low':
+            index = 0
+
+        self.logger.debug(self.attachments.keys())
+        self.deleteMessage()
 
 class editedMessage(UpdateBase):
     handler = None
