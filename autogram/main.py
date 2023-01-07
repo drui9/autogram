@@ -9,7 +9,7 @@ import loguru
 import asyncio
 import aiohttp
 import requests as _requests
-from queue import Queue
+from queue import Queue, Empty
 from threading import Event
 from typing import Dict, List
 from contextlib import contextmanager
@@ -25,6 +25,15 @@ from bottle import request, response, post, run
 class Autogram:
     api_url = 'https://api.telegram.org/'
     config = default_config
+    media_quality = "high"
+
+    @classmethod
+    def getMediaQuality(cls):
+        if (qlty := Autogram.media_quality) == 'high':
+            return 2
+        elif qlty == 'medium':
+            return 1
+        return 0
 
     def __init__(self, config: Dict):
         """
@@ -197,8 +206,20 @@ class Autogram:
             yield self.failed
             return
         elif self.webhook:
-            self.logger.debug('Blocking requests.get()')
-            yield self.requests.get(block=True)
+            if not self.terminate.is_set():
+                if self.requests.empty():
+                    try:
+                        yield self.requests.get(timeout=3)
+                    except Empty as e:
+                        yield None
+                    except Exception as e:
+                        self.logger.exception(e)
+                        self.terminate.set()
+                        yield None
+                else:
+                    yield self.requests.get(block=False)
+            else:
+                yield None
             return
         if not self.requests.empty():
             yield self.requests.get(block=False)

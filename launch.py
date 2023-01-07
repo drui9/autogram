@@ -1,29 +1,29 @@
 from autogram.updates import Message
 from autogram import Autogram, load_config
 
+@Message.onCommand('/start')
+def commandHandler(msg: Message):
+    msg.deleteMessage()
+    msg.sendText("Hello! How may I help you?")
 
-@Message.onCommandType('text')
-def adminHandler(msg: Message):
-    msg.replyText('Welcome!')
+@Message.onCommand('/logout')
+def stopHandler(msg: Message):
+    msg.deleteMessage()
+    if msg.autogram.admin == msg.sender['id']:
+        msg.autogram.admin = None
+    else:
+        msg.autogram.deputy_admin = None
+    msg.sendText('Logged out.')
 
-@Message.onMessageType('audio')
-def guestHandler(msg: Message):
-    audio = msg.getVideo('low')
-    print(audio)
-
-@Message.onMessageType('video')
-def guestHandler(msg: Message):
-    video = msg.getVideo('low')
-    print(video)
-
-@Message.onMessageType('photo')
-def guestHandler(msg: Message):
-    photo = msg.getPhoto('low')
-    print(photo)
+@Message.onCommand('/shutdown')
+def shutdownCommand(msg: Message):
+    msg.autogram.terminate.set()
+    msg.deleteMessage()
 
 @Message.onMessageType('text')
-def guestHandler(msg: Message):
-    msg.replyText('Guest, welcome!')
+def messageHandler(msg: Message):
+    msg.replyText(msg.text)
+
 
 if __name__ == '__main__':
     bot = Autogram(config = load_config())
