@@ -331,13 +331,10 @@ class Autogram:
         }
         return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
 
-    def getFile(self, file_id: str, callback: Callable):
+    def getFile(self, file_id: str):
         url = f'{self.base_url}/getFile'
-        self.requests.put((url,{
-            'params': {
-                'file_id': file_id
-            }
-        }, callback))
+        params = { 'file_id': file_id }
+        return self.webRequest(url, params=params)
 
     def getChat(self, chat_id: int, handler: Callable):
         url = f'{self.base_url}/getChat'

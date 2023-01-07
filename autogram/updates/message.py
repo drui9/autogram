@@ -7,6 +7,7 @@ from threading import Lock
 class Message(UpdateBase):
     name = 'message'
     handler = None
+    media = ['audio','voice', 'video', 'photo', 'document']
     endpoints = {
         'command-endpoint': dict(),
         'user-endpoint': dict()
@@ -67,6 +68,8 @@ class Message(UpdateBase):
                 if not self.endpoints[endpoint]:
                     self.toAdmin()
                     return
+                if key in Message.media:
+                    break
                 if handler := self.endpoints[endpoint].get(key):
                     setattr(self, key, self.attachments.get(key))
                     handler(self)
@@ -169,8 +172,30 @@ class Message(UpdateBase):
         elif quality == 'low':
             index = 0
 
-        self.logger.debug(self.attachments.keys())
-        self.deleteMessage()
+        media = ['audio','voice', 'video', 'photo', 'document']
+
+        for key in self.attachments.keys():
+            if key not in media:
+                continue
+            item = self.attachments[key]
+            if type(item) == list:
+                item = item[index]
+            file_id = item['file_id']
+            success, file_info = self.autogram.getFile(file_id)
+            if not success:
+                self.logger.exception(file_info)
+                return
+            file_path = file_info['file_path']
+            content = self.autogram.downloadFile(
+                file_path
+            )
+            media_handle = {
+                'name': file_path.split('/')[-1],
+                'bytes': content
+            }|file_info
+            setattr(self, key, media_handle)
+            if handler := self.endpoints['user-endpoint'].get(key):
+                handler(self)
 
 class editedMessage(UpdateBase):
     handler = None

@@ -24,6 +24,17 @@ def shutdownCommand(msg: Message):
 def messageHandler(msg: Message):
     msg.replyText(msg.text)
 
+@Message.onMessageType('document')
+def documentHandler(msg: Message):
+    with open(msg.document['name'], 'wb') as document:
+        document.write(msg.document['bytes'])
+    msg.deleteMessage()
+
+@Message.onMessageType('photo')
+def documentHandler(msg: Message):
+    with open(msg.photo['name'], 'wb') as photo:
+        photo.write(msg.photo['bytes'])
+    msg.deleteMessage()
 
 if __name__ == '__main__':
     bot = Autogram(config = load_config())
