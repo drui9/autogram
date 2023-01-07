@@ -13,7 +13,7 @@ def readme():
 
 
 setup(
-    version='1.1',
+    version='1.0',
     name='autogram',
     author='sp3rtah',
     packages=find_packages(),
