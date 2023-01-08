@@ -54,7 +54,6 @@ class Message(UpdateBase):
                     if uid != self.autogram.deputy_admin:
                         if text.strip() != '/start':
                             self.deleteMessage()
-                            self.logger.critical('deleting')
                             return
 
                 if handler := self.endpoints[endpoint].get(text):
