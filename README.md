@@ -1,62 +1,70 @@
 <p style="text-align: center;">
-    <img src="./autogram.png" align="middle" alt="Autogram logo">
+    <img src="https://github.com/sp3rtah/autogram/blob/main/autogram.png" align="middle" alt="Autogram">
 <p>
 
 # An efficient asyncronous Telegram bot API wrapper!
-Autogram is an asyncrounous `configure and forget` telegram BOT API wrapper written in python using asyncio coroutine framework. 
+Autogram is an asyncrounous, extensible telegram BOT API wrapper written in python using asyncio. 
 
 ```python
 import os
-from dotenv import load_dotenv
+from autogram.updates import Message
+from autogram import Autogram, load_config
 
-from autogram import Autogram
-from autogram.updates.message import Message
+@Message.onCommand('/start')
+def commandHandler(msg: Message):
+    msg.deleteMessage()
+    msg.sendText("Hello! How may I help you?")
 
-@Message.addHandler
-def textHandler(message: Message):
-    print(message)
-    message.replyText('I received your message!')
+@Message.onCommand('/logout')
+def stopHandler(msg: Message):
+    msg.deleteMessage()
+    if msg.autogram.admin == msg.sender['id']:
+        msg.autogram.admin = None
+    else:
+        msg.autogram.deputy_admin = None
+    msg.sendText('Logged out.')
 
-def main():
-    public_addr = os.getenv('PUBLIC_URL')  # pubic ip, or ngrok addr
-    token = os.getenv('TELEGRAM_TOKEN') # from BotFather
-    bot = Autogram(token)   # get handle to the bot
-    bot.send_online(pub_addr).join()  # bot runs in separate thread.
+@Message.onCommand('/shutdown')
+def shutdownCommand(msg: Message):
+    msg.autogram.terminate.set()
+    msg.deleteMessage()
+
+@Message.onMessageType('text')
+def messageHandler(msg: Message):
+    msg.replyText(msg.text)
+
+@Message.onMessageType('voice')
+@Message.onMessageType('audio')
+@Message.onMessageType('photo')
+@Message.onMessageType('video')
+@Message.onMessageType('document')
+@Message.onMessageType('video_note')
+def fileHandler(msg: Message):
+    temp_dir = 'Downloads'
+    if not os.path.exists(temp_dir):
+        os.mkdir(temp_dir)
+    file_path = f"{temp_dir}/{msg.file['name']}"
+    with open(file_path, 'wb') as file:
+        file.write(msg.file['bytes'])
+    msg.deleteMessage()
+
 
 if __name__ == '__main__':
-    load_dotenv()
-    main()
-
+    bot = Autogram(config = load_config())
+    bot_thread = bot.send_online()
+    ## do your own calls in this thread
+    # main(bot)
+    # join when done
+    bot_thread.join()
 ```
-See! :)
-
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 
-
-A couple things you'd wish to know beforehand:
-1. When the internet connection is poor, the bot will retry contacting the server 12 times. Should all the 12 calls fail, the bot will terminate. Note that when using a webhook, these calls will be made during setup stage, as we'll be waiting for telegram to send messages to us most of the time. Internal functionality may make calls periodically too. This will be clarified at a later stage.
-
-2. You can use the bot handle returned by `bot = Autogram(token)` to terminate the telegram bot. Just call `bot.terminate.set()` to set the terminate event in the bot thread.
-
-3. You really wanna make sure your bot is accessible by telegram. From their documentation, telegram will try accessing your webhook endpoint whenever there's pending updates, and stop after a reasonable number of attempts should your service be inacessible. Outgoing calls from the bot can detect this, but in their absence, there's no way for the bot to know if there's a network issue.
-
-4. The bot has implicit chat actions. i.e typing, sending photo, etc which are invoked when you call reply functions on update objects.
-
-## Upcoming features
-- Bot will know it's admin. Errors or updates with unimplemented callbacks can be optionally forwarded to `admin`
-- Better handling of message attachments
-- Plans to cover the entire telegram API
+1. You can use the bot handle returned by `bot = Autogram(token)` to terminate the telegram bot. Just call `bot.terminate.set()` to set the terminate event in the bot thread.
+2. The bot has implicit chat actions. i.e typing, sending photo, etc which are invoked when you call reply functions on update objects.
 
 ## Why AutoGram?
-I looked around for a reliable wrapper for use in my projects but found none was to my taste. You might have come across teleBot -a prototype that's also public here on github- which essentially is the backbone of this async version. 
-
-
-# What's the difference between teleBot and Autogram?
-I wrote teleBot to better understand the telegram bot API. I used it in Poetry -A telegram bot that replies with poems based on themes you send it. It works for it's purpose, but developers have to handle everything including fetching updates, or setting webhooks. The wrapper has functionality for working with attachments like media and files, but the developer has to explicitly direct the wrapper logic. 
-
-As for AutoGram, the bot is asyncronous, and runs in a separate daemon thread. If used in a larger application, the bot terminates when the 'main' program terminates. Alternatively, you can join on the bot thread if termination functionality is included in the `callback` functions. Especially in cases where the telegram bot is the main application.
+I needed a bot framework that was easy to control remotely.
 
 AutoGram has a built-in webhook endpoint written using Bottle Framework. Therefore, if you have a public IP, or can get an external service to comminicate with `localhost` through a service like ngrok (I use it too!), then add that IP or publicly visible address to your environment variables. If the public addr is not found, the program will use polling to fetch updates from telegram servers.
-
 You add functionality to Autogram bot py implementing and adding callback functions. The bot will therefore work with available callbacks, and will continue to work even if none is specified! This allows the bot to work with available features, despite of missing handlers for specific types of messages.
 
 
@@ -74,26 +82,17 @@ from .query import callbackQuery, shippingQuery, precheckoutQuery
 
 The above are largely unimplemented, as my current project only requires the Message functionality. I intend to implement the rest either for fun, or as requirements for my future projects. Should you need an implementation, let me know so I can speed it up for you. I will include a list of completed features at the end.
 
-# Notice:
-    This project is still in it's conseptual stage, and I take my time to come up with ideal ways I'd want users to consume the API. Simplicity and consistency are what I aim for. I wrote this for personal use as existing wrappers were either too verborse or had a steep learning curve, or both. I tend to delete, upgrade or make private my opensource projects without backward compatibility, especially if they're unutilised .So feel free to use this library in whatever usecase you may have, but do me one favor: Let me know. Maybe you're the reason this project stays public. :)
-
-
-# Working Features with examples of adding handlers
+# Complete Update types
 - Message
-- More coming soon...
 
-```python
-from autogram.updates.message import Message
-
-@Message.addHandler
-def textHandler(message: Message):
-    print(message)
-```
-
+## Upcoming features
+- Bot will know it's admin. Errors or updates with unimplemented callbacks can be optionally forwarded to `admin` -> Done
+- Better handling of message attachments    -> Implicitly forwarded to admin, if callback is not defined
+- Plans to cover the entire telegram API -> in progress
+- Format and forward notifications/alerts to admin. i.e: added to group, blocked, etc -> Not started
 
 ### footnotes
-- I use [launch.py](launch.py) for in-development testing. It might give you an insight on how this useful wrapper can be used!
+- short-polling is available for testing.
+- If you're using with ngrok, use `ngrok http 4004`
 - Don't run multiple bots with the same `TELEGRAM_TOKEN` as this will cause update problems
-- If you're using with ngrok, the bot webhook runs on port 4004
-- Only use long/short-polling for testing.
-- Try and have fun. Life's already depressing as it is.(No? it is to me) ;)
+- Try and have fun ;)

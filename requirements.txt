@@ -2,6 +2,4 @@ aiohttp
 loguru
 bottle
 requests
-watchdog
 python-dotenv
-alive-progress

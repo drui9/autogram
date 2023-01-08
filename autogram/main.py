@@ -189,9 +189,7 @@ class Autogram:
             self.getWebhookInfo(check_webhook)
         ##
         await asyncio.sleep(0)    # allow getMe to run
-        self.logger.debug('started processing')
         await processor
-        self.logger.debug('done processing')
 
         ## done processing. terminate
         self.terminate.set()

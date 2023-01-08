@@ -44,8 +44,7 @@ def fileHandler(msg: Message):
 if __name__ == '__main__':
     bot = Autogram(config = load_config())
     bot_thread = bot.send_online()
-    try:
-        bot_thread.join()
-    except:
-        print('>> out of context <<')
-        raise
+    ## do your own calls in this thread
+    # main(bot)
+    # join when done
+    bot_thread.join()
