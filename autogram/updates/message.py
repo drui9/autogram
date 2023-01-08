@@ -59,7 +59,6 @@ class Message(UpdateBase):
                 if handler := self.endpoints[endpoint].get(text):
                     handler(self)
                 else:
-                    self.logger.critical('deleting')
                     self.deleteMessage()
                     self.autogram.sendMessage(
                         self.sender['id'],

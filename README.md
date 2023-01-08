@@ -99,7 +99,7 @@ The above are largely unimplemented, as my current project only requires the Mes
 
 ### `footnotes`
 - short-polling is available for testing.
-- If you're using with ngrok, use `ngrok http 4004`
+- If you're using with ngrok, use `ngrok http 80`
 - Don't run multiple bots with the same `TELEGRAM TOKEN` as this will cause update problems
 - Update types not listed above may not work as intented. Hit me up to speed up a module for you.
 - Try and have fun ;)

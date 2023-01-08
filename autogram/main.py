@@ -51,7 +51,7 @@ class Autogram:
         self.deputy_admin = None
         self.routines = set()
         # 
-        self.port = 4004
+        self.port = 80
         self.webhook = None
         self.host = '0.0.0.0'
         self.update_offset = 0
