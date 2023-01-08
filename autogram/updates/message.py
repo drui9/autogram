@@ -39,6 +39,10 @@ class Message(UpdateBase):
 
                 for entity in entities:
                     text = self.attachments.get('text')
+                    typ = entity.get('type')
+                    if typ != 'bot_command':
+                        self.toAdmin()
+                        return
                     if text:
                         break
 
@@ -48,13 +52,15 @@ class Message(UpdateBase):
 
                 if (uid := self.sender['id']) != self.autogram.admin:
                     if uid != self.autogram.deputy_admin:
-                       if text != '/start':
+                        if text.strip() != '/start':
                             self.deleteMessage()
+                            self.logger.critical('deleting')
                             return
 
                 if handler := self.endpoints[endpoint].get(text):
                     handler(self)
                 else:
+                    self.logger.critical('deleting')
                     self.deleteMessage()
                     self.autogram.sendMessage(
                         self.sender['id'],
@@ -172,9 +178,8 @@ class Message(UpdateBase):
         elif quality == 'low':
             index = 0
 
-        media = Message.media
         for key in self.attachments.keys():
-            if key not in media:
+            if key not in Message.media:
                 self.logger.debug(f"unknown media: {key}")
                 continue
             item = self.attachments[key]
