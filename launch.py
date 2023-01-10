@@ -6,7 +6,7 @@ from autogram import Autogram, onLoadConfig
 @Message.onCommand('/start')
 def commandHandler(msg: Message):
     msg.deleteMessage()
-    msg.sendText("Hello! How may I help you?")
+    msg.replyText(f"Hello, @{msg.sender['username']}!")
 
 @Message.onCommand('/logout')
 def stopHandler(msg: Message):
@@ -47,3 +47,4 @@ def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()
     bot_thread.join()
+

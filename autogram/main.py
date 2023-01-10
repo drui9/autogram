@@ -25,6 +25,7 @@ from bottle import request, response, post, run
 class Autogram:
     api_url = 'https://api.telegram.org/'
     media_quality = "high"
+    httpIgnore = [400]
 
     @classmethod
     def getMediaQuality(cls):
@@ -279,8 +280,10 @@ class Autogram:
                                    failed_requests -= 1
                                    self.failed = None
                             else:
-                                self.logger.critical(f"{resp.status},{await resp.json()} (endpoint:{link.split('/')[-1]}: kw: {kw}: callback: {callback})")
-                                self.terminate.set()
+                                self.logger.debug(f"{resp.status} : {await resp.json()} (endpoint:{link.split('/')[-1]}: kw: {kw}: callback: {callback})")
+                                if resp.status not in Autogram.httpIgnore:
+                                    if self.config['max_retries']: # shutdown if max_retries != 0
+                                        self.terminate.set()
                                 break
                     except KeyboardInterrupt:
                         self.terminate.set()
@@ -299,9 +302,16 @@ class Autogram:
                     finally:
                         if error_detected:
                             failed_requests += 1
-                            print(error_detected)
                             self.failed = (link,kw,callback)
 
+    @loguru.logger.catch()
+    def downloadFile(self, file_path: str):
+        url = f"https://api.telegram.org/file/bot{self.config['telegram_token']}/{file_path}"
+        res = _requests.get(url)
+        if res.ok:
+            return res.content
+        else:
+            self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
 
     @loguru.logger.catch()
     def webRequest(self, url: str, params={}, files=None):
@@ -345,16 +355,6 @@ class Autogram:
         url = f'{self.base_url}/getWebhookInfo'
         self.requests.put((url,None,handler))
 
-    @loguru.logger.catch()
-    def downloadFile(self, file_path: str):
-        url = f"https://api.telegram.org/file/bot{self.config['telegram_token']}/{file_path}"
-        res = _requests.get(url)
-        if res.ok:
-            return res.content
-        else:
-            self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
-
-    @loguru.logger.catch()
     def sendMessage(self, chat_id: int, text: str, params={}):
         url = f'{self.base_url}/sendMessage'
         self.requests.put((url, {
@@ -364,7 +364,6 @@ class Autogram:
             }|params
         }, None))
 
-    @loguru.logger.catch()
     def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
         url = f'{self.base_url}/forwardMessage'
         self.requests.put((url,{
@@ -375,7 +374,6 @@ class Autogram:
             }
         },None))
 
-    @loguru.logger.catch()
     def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
         url = f'{self.base_url}/editMessageText'
         self.requests.put((url,{
@@ -386,7 +384,6 @@ class Autogram:
             }|params
         },None))
 
-    @loguru.logger.catch()
     def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}):
         url = f'{self.base_url}/editMessageCaption'
         self.requests.put((url, {
@@ -397,7 +394,6 @@ class Autogram:
             }|params
         }, None))
 
-    @loguru.logger.catch()
     def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}):
         url = f'{self.base_url}/editMessageReplyMarkup'
         self.requests.put((url,{
@@ -408,7 +404,6 @@ class Autogram:
             }|params
         }, None))
 
-    @loguru.logger.catch()
     def deleteMessage(self, chat_id: int, msg_id: int):
         url = f'{self.base_url}/deleteMessage'
         self.requests.put((url,{
@@ -501,3 +496,4 @@ class Autogram:
             'remove_keyboard': True,
         }|params
         return json.dumps(markup)
+
