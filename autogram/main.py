@@ -24,7 +24,6 @@ from bottle import request, response, post, run
 
 class Autogram:
     api_url = 'https://api.telegram.org/'
-    config = default_config
     media_quality = "high"
 
     @classmethod

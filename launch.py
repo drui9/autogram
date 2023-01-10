@@ -1,6 +1,7 @@
 import os
 from autogram.updates import Message
-from autogram import Autogram, load_config
+from autogram import Autogram, onLoadConfig
+
 
 @Message.onCommand('/start')
 def commandHandler(msg: Message):
@@ -41,10 +42,8 @@ def fileHandler(msg: Message):
     msg.deleteMessage()
 
 
-if __name__ == '__main__':
-    bot = Autogram(config = load_config())
+@onLoadConfig('autogram.json')
+def startBot(config: dict):
+    bot = Autogram(config=config)
     bot_thread = bot.send_online()
-    ## do your own calls in this thread
-    # main(bot)
-    # join when done
     bot_thread.join()

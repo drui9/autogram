@@ -8,7 +8,8 @@ Autogram is an asyncrounous, extensible telegram BOT API wrapper written in pyth
 ```python
 import os
 from autogram.updates import Message
-from autogram import Autogram, load_config
+from autogram import Autogram, onLoadConfig
+
 
 @Message.onCommand('/start')
 def commandHandler(msg: Message):
@@ -49,12 +50,10 @@ def fileHandler(msg: Message):
     msg.deleteMessage()
 
 
-if __name__ == '__main__':
-    bot = Autogram(config = load_config())
+@onLoadConfig('autogram.json')
+def startBot(config: dict):
+    bot = Autogram(config=config)
     bot_thread = bot.send_online()
-    ## do your own calls in this thread
-    # main(bot)
-    # join when done
     bot_thread.join()
 ```
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 
