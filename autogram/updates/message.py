@@ -44,6 +44,7 @@ class Message(UpdateBase):
                         self.toAdmin()
                         return
                     if text:
+                        setattr(self, 'text', text)
                         break
 
                 if not text:

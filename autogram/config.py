@@ -18,6 +18,8 @@ def load_config(config_file : str, config_path : str):
     """Load configuration file from config_path dir"""
     if not os.path.exists(config_path):
         os.mkdir(config_path)
+    #
+    config_file = os.path.join(config_path, config_file)
     if not os.path.exists(config_file):
         with open(config_file, 'w') as conf:
             json.dump(default_config, conf, indent=3)
