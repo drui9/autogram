@@ -15,6 +15,7 @@ from typing import Dict, List
 from contextlib import contextmanager
 from typing import Callable
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 #
 from . import *
@@ -57,6 +58,7 @@ class Autogram:
         self.update_offset = 0
         self.requests = Queue()
         self.terminate = Event()
+        self.executor = ThreadPoolExecutor()
         # 
         self.setup_logger()
 
@@ -78,10 +80,10 @@ class Autogram:
                 run(server=server, quiet=True)
             # 
             server = MyServer(host=self.host,port=self.port)
-            svr_thread = threading.Thread(target=runServer,args=(server,))
-            svr_thread.name = 'Bottle Server'
-            svr_thread.daemon = True
-            svr_thread.start()
+            serv_thread = threading.Thread(target=runServer, args=(server,))
+            serv_thread.name = 'Autogram::Bottle webserver'
+            serv_thread.daemon = True
+            serv_thread.start()
             #
             self.webhook = f"{self.config['public_ip']}/{hookPath}"
             self.logger.info(f'Webhook set successfully...')
@@ -158,9 +160,7 @@ class Autogram:
                 if not self.admin and parser.name != 'message':
                     return
                 parser.autogram = self
-                parse_thread = threading.Thread(target=parser,args=(payload,))
-                parse_thread.daemon = True
-                parse_thread.start()
+                self.executor.submit(parser, payload)
         # 
         if type(res) == list:
             for update in res:
@@ -195,6 +195,10 @@ class Autogram:
         self.terminate.set()
         await asyncio.gather(*self.routines)
         self.logger.debug('Main loop terminated.')
+
+    def shutdown(self):
+        self.terminate.set()
+        self.executor.shutdown()
 
     @contextmanager
     def get_request(self):

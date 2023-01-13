@@ -3,7 +3,7 @@
 <p>
 
 # 0x00 An efficient asyncronous Telegram bot API wrapper!
-Autogram is an asyncrounous, extensible telegram BOT API wrapper written in python using asyncio. 
+Autogram is an easily extensible telegram BOT API wrapper that uses aiohttp to disparch requests. Get ahead quickly by simply cloning and adding new callbacks to this module!
 
 ```python
 import os
@@ -91,10 +91,15 @@ The above are largely unimplemented, as my current project only requires the Mes
 - Media messages are forwared to admin, but ignored if admin sends them.
 
 # 0x06 Upcoming features
-- Add state using SQLAlchemy
-- Plans to cover the entire telegram API -> in progress
-- Track deleted messages to avoid multiple deletes. `causes an error`
+- Plans to cover the entire telegram API
 - Format and forward notifications/alerts to admin. i.e: added to group, blocked, etc -> Not started
+
+# ChangeLog
+- Handling update callbacks with concurrent.futures.ThreadPoolExecutor
+- Ignoring http400 for failed deletes which get executed on server side.
+- Added onLoadConfig(config_name) callback handler which can be used to start the bot. Here, you can intercept bot config
+- Default behaviour is to forward messages to admin.
+- Admin can have an assistant.
 
 ### `footnotes`
 - short-polling is available for testing.
@@ -102,3 +107,4 @@ The above are largely unimplemented, as my current project only requires the Mes
 - Don't run multiple bots with the same `TELEGRAM TOKEN` as this will cause update problems
 - Update types not listed above may not work as intented. Hit me up to speed up a module for you.
 - Try and have fun ;)
+
