@@ -91,6 +91,7 @@ The above are largely unimplemented, as my current project only requires the Mes
 - Media messages are forwared to admin, but ignored if admin sends them.
 
 # 0x06 Upcoming features
+- Make `retry` default behaviour, customizable with onDisconnect callback.
 - Plans to cover the entire telegram API
 - Format and forward notifications/alerts to admin. i.e: added to group, blocked, etc -> Not started
 

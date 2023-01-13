@@ -95,7 +95,6 @@ class Message(UpdateBase):
         elif self.isRanked():
             if self.isAdmin():
                 if self.autogram.deputy_admin:
-                    self.autogram.deputy_admin = None
                     self.autogram.sendMessage(
                         self.autogram.admin,
                         "Welcome! Seeing your assistant out."
@@ -104,6 +103,7 @@ class Message(UpdateBase):
                         self.autogram.deputy_admin,
                         "Admin is back. You've been logged out."
                     )
+                    self.autogram.deputy_admin = None
             parambulate()
             return
         elif not self.autogram.deputy_admin:

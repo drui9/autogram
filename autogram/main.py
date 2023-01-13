@@ -69,7 +69,7 @@ class Autogram:
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
         if self.config['public_ip']:
-            hookPath = self.config['telegram_token'].split(":")[-1]
+            hookPath = self.config['telegram_token'].split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
@@ -300,8 +300,9 @@ class Autogram:
                     except asyncio.exceptions.TimeoutError as e:
                         error_detected = e
                     except Exception as e:
+                        if e:
+                            self.logger.exception(e)
                         self.terminate.set()
-                        self.logger.exception(e)
                         error_detected = e
                     finally:
                         if error_detected:
