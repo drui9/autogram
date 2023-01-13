@@ -86,7 +86,7 @@ class Autogram:
             serv_thread.start()
             #
             self.webhook = f"{self.config['public_ip']}/{hookPath}"
-            self.logger.info(f'Webhook set successfully...')
+            self.logger.debug(f'Webhook: {self.webhook}')
         #
         def launch():
             try:

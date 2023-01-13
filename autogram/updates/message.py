@@ -6,7 +6,7 @@ from threading import Lock
 
 class Message(UpdateBase):
     name = 'message'
-    handler = None
+    handler = None # updated by Autogram on new message
     media = ['audio','voice', 'video', 'photo', 'document', 'video_note']
     endpoints = {
         'command-endpoint': dict(),
@@ -51,11 +51,10 @@ class Message(UpdateBase):
                     self.toAdmin()
                     return
 
-                if (uid := self.sender['id']) != self.autogram.admin:
-                    if uid != self.autogram.deputy_admin:
-                        if text.strip() != '/start':
-                            self.deleteMessage()
-                            return
+                if not self.isRanked():
+                    if text != '/start':
+                        self.deleteMessage()
+                        return
 
                 if handler := self.endpoints[endpoint].get(text):
                     handler(self)
@@ -93,18 +92,18 @@ class Message(UpdateBase):
                 'No attendants!'
             )
             return
-        elif self.sender['id'] == self.autogram.admin or self.sender['id'] == self.autogram.deputy_admin:
-            if self.sender['id'] == self.autogram.admin:
+        elif self.isRanked():
+            if self.isAdmin():
                 if self.autogram.deputy_admin:
+                    self.autogram.deputy_admin = None
                     self.autogram.sendMessage(
                         self.autogram.admin,
-                        "You're back! Letting deputy out."
+                        "Welcome! Seeing your assistant out."
                     )
                     self.autogram.sendMessage(
                         self.autogram.deputy_admin,
-                        "You've been logged out."
+                        "Admin is back. You've been logged out."
                     )
-                self.autogram.deputy_admin = None
             parambulate()
             return
         elif not self.autogram.deputy_admin:
@@ -152,6 +151,21 @@ class Message(UpdateBase):
             self.sender['id'],
             self.id
         )
+
+    def isAdmin(self):
+        if self.sender['id'] == self.autogram.admin:
+            return True
+        return False
+
+    def isAssistant(self):
+        if self.sender['id'] == self.autogram.deputy_admin:
+            return True
+        return False
+
+    def isRanked(self):
+        if self.isAdmin() or self.isAssistant():
+            return True
+        return False
 
     def sendText(self, text: str):
         self.autogram.sendChatAction(self.sender['id'], chat_actions.typing)
