@@ -108,7 +108,17 @@ class Autogram:
 
     def setup_logger(self):
         """prepare logger and log levels"""
+        logger_format = (
+            "<green>{time:DD/MM/YYYY HH:mm:ss}</green> | "
+            "<level>{level: <8}</level>|"
+            "<cyan>{line}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan> | "
+            "<level>{message}</level>"
+        )
+        loguru.logger.remove()
+        lvl = self.config.get('log_level') or 'DEBUG'
+        loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
         self.logger = loguru.logger
+        return
 
     def getMe(self, me: Dict):
         """receive and parse getMe request."""

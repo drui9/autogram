@@ -7,6 +7,7 @@ from typing import Callable
 default_config = {
     'tcp_timeout': 6,
     'max_retries': 7,
+    'log_level': 'ERROR',
     'admin_username': None,
     'contingency_pwd': None,
     'public_ip': None,
