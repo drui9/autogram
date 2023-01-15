@@ -1,30 +1,26 @@
 import os
 from autogram.updates import Message
-from autogram import Autogram, onLoadConfig
+from autogram import Autogram, onStart
 
+class Test:
+    @classmethod
+    @Message.onCommand('checkmate')
+    def checkmate(cls, msg):
+        pass
 
-@Message.onCommand('/start')
+@Message.onCommand('start')
 def commandHandler(msg: Message):
-    msg.deleteMessage()
-    msg.replyText(f"Hello, @{msg.sender['username']}!")
+    msg.delete()
+    msg.textBack(f"Hi, {msg.sender['first_name']} {msg.sender['last_name']}!")
 
-@Message.onCommand('/logout')
-def stopHandler(msg: Message):
-    msg.deleteMessage()
-    if msg.autogram.admin == msg.sender['id']:
-        msg.autogram.admin = None
-    else:
-        msg.autogram.deputy_admin = None
-    msg.sendText('Logged out.')
-
-@Message.onCommand('/shutdown')
+@Message.onCommand('shutdown')
 def shutdownCommand(msg: Message):
     msg.autogram.terminate.set()
-    msg.deleteMessage()
+    msg.delete()
 
 @Message.onMessageType('text')
 def messageHandler(msg: Message):
-    msg.replyText(msg.text)
+    msg.textBack(msg.text)
 
 @Message.onMessageType('voice')
 @Message.onMessageType('audio')
@@ -39,10 +35,9 @@ def fileHandler(msg: Message):
     file_path = f"{temp_dir}/{msg.file['name']}"
     with open(file_path, 'wb') as file:
         file.write(msg.file['bytes'])
-    msg.deleteMessage()
+    msg.delete()
 
-
-@onLoadConfig('autogram.json')
+@onStart('autogram.json')
 def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()

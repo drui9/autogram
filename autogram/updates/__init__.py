@@ -1,12 +1,10 @@
-from abc import ABC, abstractclassmethod
-from typing import Callable
-from loguru import logger
 import json
+from typing import Any
 
-
-class UpdateBase(ABC):
+class UpdateBase():
     subscribed_updates = set()
-    autogram = None
+    autogram : Any = None
+    handler = None
 
     @classmethod
     def filter_updates(cls):
@@ -17,18 +15,23 @@ class UpdateBase(ABC):
 
     def __init__(self):
         self.autogram = UpdateBase.autogram
-        self.logger = logger
-
-
-from .channel import channelPost, editedChannelPost
-from .chat import chatMember, myChatMember, chatJoinRequest
-from .inline import inlineQuery, chosenInlineResult
-from .message import Message, editedMessage
-from .poll import Poll, pollAnswer
-from .query import callbackQuery, shippingQuery, precheckoutQuery
-
-## extras
+#
+from .chosenInline_result import chosenInlineResult
+from .editedChannel_post import editedChannelPost
+from .precheckout_query import precheckoutQuery
+from .chatJoin_request import chatJoinRequest
+from .edited_message import editedMessage
+from .callback_query import callbackQuery
+from .shipping_query import shippingQuery
+from .myChat_member import myChatMember
+from .inline_query import inlineQuery
+from .channel_post import channelPost
+from .chat_member import chatMember
+from .poll_answer import pollAnswer
 from .notices import Notification
+from .message import Message
+from .poll import Poll
+#
 
 __all__ = [
     'UpdateBase',

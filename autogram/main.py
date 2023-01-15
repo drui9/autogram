@@ -1,75 +1,69 @@
-"""
-@author: The Alchemist
-@url: https://sp3rtah.github.io/sp3rtah
-@license: MIT
-"""
 import sys
 import json
 import loguru
 import asyncio
 import aiohttp
-import requests as _requests
-from queue import Queue, Empty
-from threading import Event
-from typing import Dict, List
-from contextlib import contextmanager
-from typing import Callable
+import requests
 import threading
+from typing import Callable
+from typing import Dict, Any
+from queue import Queue, Empty
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
-
 #
-from . import *
-from autogram.hooker import MyServer
+from autogram import *
+from autogram.webhook import MyServer
 from bottle import request, response, post, run
 
 
 class Autogram:
     api_url = 'https://api.telegram.org/'
-    media_quality = "high"
-    httpIgnore = [400]
 
-    @classmethod
-    def getMediaQuality(cls):
-        if (qlty := Autogram.media_quality) == 'high':
+    def __init__(self, config: Dict):
+        self.config = config
+        self._initialize_()
+
+    def _initialize_(self):
+        self.webhook = None
+        self.host = '0.0.0.0'
+        self.update_offset = 0
+        self.httpRoutines = list()
+        self.httpRequests = Queue()
+        self.workerThreads = list()
+        self.terminate = threading.Event()
+        self.executor = ThreadPoolExecutor()
+        self.port = self.config['tcp-port']
+        self.timeout = aiohttp.ClientTimeout(self.config['tcp-timeout'])
+        self.base_url = f"{Autogram.api_url}bot{self.config['telegram-token']}"
+        # 
+        logger_format = (
+            "<green>{time:DD/MM/YYYY HH:mm:ss}</green> | "
+            "<level>{level: <8}</level>|"
+            "<cyan>{line}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan> | "
+            "<level>{message}</level>"
+        )
+        loguru.logger.remove()
+        #
+        lvl = 'DEBUG'
+        if env := self.config.get('env'):
+            if env == 1:
+                lvl = self.config.get('log-level') or 'DEBUG'
+        #
+        loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
+        self.logger = loguru.logger
+
+    def mediaQuality(self):
+        if (qlty := self.config.get("media-quality") or 'high') == 'high':
             return 2
         elif qlty == 'medium':
             return 1
         return 0
 
-    def __init__(self, config: Dict):
-        """
-        class Autogram:
-        """
-        self.config = config
-        self.config['telegram_token'] = config['telegram_token']
-        self._initialize_()
-
-    def _initialize_(self):
-        self.timeout = aiohttp.ClientTimeout(self.config['tcp_timeout'])
-        self.base_url = f"{Autogram.api_url}bot{self.config['telegram_token']}"
-        # 
-        self.admin = None
-        self.deputy_admin = None
-        self.routines = set()
-        # 
-        self.port = 4004
-        self.webhook = None
-        self.host = '0.0.0.0'
-        self.update_offset = 0
-        self.requests = Queue()
-        self.terminate = Event()
-        self.executor = ThreadPoolExecutor()
-        # 
-        self.setup_logger()
-
-    def __repr__(self) -> str:
-        return str(vars(self))
-
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if self.config['public_ip']:
-            hookPath = self.config['telegram_token'].split(":")[-1].lower()
+        if self.config['tcp-ip']:
+            hookPath = self.config['telegram-token'].split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
@@ -81,13 +75,13 @@ class Autogram:
             # 
             server = MyServer(host=self.host,port=self.port)
             serv_thread = threading.Thread(target=runServer, args=(server,))
-            serv_thread.name = 'Autogram::Bottle webserver'
+            serv_thread.name = 'Autogram::Bottle'
             serv_thread.daemon = True
             serv_thread.start()
             #
-            self.webhook = f"{self.config['public_ip']}/{hookPath}"
+            self.webhook = f"{self.config['tcp-ip']}/{hookPath}"
             self.logger.debug(f'Webhook: {self.webhook}')
-        #
+        # wrap and start main_loop
         def launch():
             try:
                 if sys.platform != 'linux':
@@ -95,39 +89,40 @@ class Autogram:
                 asyncio.run(self.main_loop())
             except KeyboardInterrupt:
                 self.terminate.set()
-                _pending = self.requests.unfinished_tasks
-                if _pending:
-                    self.logger.info(f'[autogram]: {_pending} update tasks...')
-            except Exception:
-                raise
+            except Exception as e:
+                loguru.logger.exception(e)
+        #
         worker = threading.Thread(target=launch)
         worker.name = 'Autogram'
         worker.daemon = True
         worker.start()
         return worker
 
-    def setup_logger(self):
-        """prepare logger and log levels"""
-        logger_format = (
-            "<green>{time:DD/MM/YYYY HH:mm:ss}</green> | "
-            "<level>{level: <8}</level>|"
-            "<cyan>{line}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan> | "
-            "<level>{message}</level>"
-        )
-        loguru.logger.remove()
-        lvl = self.config.get('log_level') or 'DEBUG'
-        loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
-        self.logger = loguru.logger
-        return
+    async def main_loop(self):
+        """Main control loop"""
+        processor = asyncio.create_task(self.aioWebRequest())
+        self.httpRequests.put((f'{self.base_url}/getMe',None,self.getMe))
+        if self.webhook:
+            url = f'{self.base_url}/setWebhook'
+            self.httpRequests.put((url,{
+                'params': {
+                    'url': self.webhook
+                }
+            }, None))
+        else:   # delete webhook
+            def check_webhook(info: dict):
+                if info['url']:
+                    self.deleteWebhook()
+            self.getWebhookInfo(check_webhook)
+        #
+        await asyncio.sleep(0)    # allow getMe to run
+        await processor
+        #
+        self.terminate.set()
+        self.logger.info('Autogram terminated.')
 
-    def getMe(self, me: Dict):
-        """receive and parse getMe request."""
-        self.logger.info('*** connected... ***')
-        for k,v in me.items():
-            setattr(self, k, v)
-
-    @loguru.logger.catch()
-    def updateRouter(self, res: Dict|List):
+    @loguru.logger.catch
+    def updateRouter(self, res: Any):
         """receive and route updates"""
         def handle(update: Dict):
             parser = None
@@ -166,11 +161,15 @@ class Autogram:
             # 
             if not parser:
                 return
-            else:
-                if not self.admin and parser.name != 'message':
-                    return
-                parser.autogram = self
-                self.executor.submit(parser, payload)
+            # todo: implement all update types then allow through
+            if parser.name != 'message':
+                self.logger.critical(f"Unimplemented: {parser.name}")
+                return
+            #
+            parser.autogram = self
+            # todo: call in separate thread
+            worker = self.executor.submit(parser, payload)
+            self.workerThreads.append(worker)
         # 
         if type(res) == list:
             for update in res:
@@ -179,36 +178,25 @@ class Autogram:
                 handle(update)
             return
         handle(res)
+        return
 
-    async def main_loop(self):
-        """Main control loop"""
-        self.logger.debug('Main loop started...')
-        processor = asyncio.create_task(self.aioWebRequest())
-        self.requests.put((f'{self.base_url}/getMe',None,self.getMe))
-        if self.webhook:
-            url = f'{self.base_url}/setWebhook'
-            self.requests.put((url,{
-                'params': {
-                    'url': self.webhook
-                }
-            }, None))
-        else:   # delete webhook
-            def check_webhook(info: dict):
-                if info['url']:
-                    self.deleteWebhook()
-            self.getWebhookInfo(check_webhook)
-        ##
-        await asyncio.sleep(0)    # allow getMe to run
-        await processor
-
-        ## done processing. terminate
-        self.terminate.set()
-        await asyncio.gather(*self.routines)
-        self.logger.debug('Main loop terminated.')
-
-    def shutdown(self):
-        self.terminate.set()
-        self.executor.shutdown()
+    def toThread(self, *args):
+        if self.terminate.is_set():
+            return
+        #
+        to_remove = list()
+        for thread in self.workerThreads:
+            if not thread.done():
+                continue
+            try:
+                thread.exception()
+            except Exception as e:
+                self.logger.exception(e)
+            to_remove.append(thread)
+        #
+        for item in to_remove:
+            self.workerThreads.remove(item)
+        self.workerThreads.append(self.executor.submit(*args))
 
     @contextmanager
     def get_request(self):
@@ -219,9 +207,9 @@ class Autogram:
             return
         elif self.webhook:
             if not self.terminate.is_set():
-                if self.requests.empty():
+                if self.httpRequests.empty():
                     try:
-                        yield self.requests.get(timeout=3)
+                        yield self.httpRequests.get(timeout=3)
                     except Empty as e:
                         yield None
                     except Exception as e:
@@ -229,12 +217,12 @@ class Autogram:
                         self.terminate.set()
                         yield None
                 else:
-                    yield self.requests.get(block=False)
+                    yield self.httpRequests.get(block=False)
             else:
                 yield None
             return
-        if not self.requests.empty():
-            yield self.requests.get(block=False)
+        if not self.httpRequests.empty():
+            yield self.httpRequests.get(block=False)
             return
         yield None
 
@@ -242,20 +230,35 @@ class Autogram:
     async def aioWebRequest(self):
         """Make asynchronous requests to the Telegram API"""
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
-            failed_requests = 0
             self.failed = None
-
-            ## waiting loop
+            #
+            @loguru.logger.catch
+            async def httpHandler():
+                while not self.terminate.is_set():
+                    if not self.httpRoutines:
+                        await asyncio.sleep(0)
+                        continue
+                    #
+                    for item in self.httpRoutines:
+                        incoming, outgoing = item
+                        #
+                        resp, payload = incoming
+                        _, _, callback = outgoing
+                        if resp.ok:
+                            self.httpRoutines.remove(item)
+                            #
+                            if payload and callback:
+                                thread_worker = self.executor.submit(callback, payload)
+                                self.workerThreads.append(thread_worker)
+                        else:
+                            self.logger.critical(f"HTTPError {resp.status} : ({link.split('/')[-1]})")
+            #
+            # start httpHandler
+            asyncio.create_task(httpHandler())
             while not self.terminate.is_set():
-                if self.config['max_retries']:
-                    if failed_requests > self.config['max_retries']:
-                        self.logger.critical(f'Maximum retries reached: {failed_requests}. Shutting down...')
-                        self.terminate.set()
-                        break
-                # 
                 with self.get_request() as request:
                     if not request:
-                        ## no webhook? create getJob task
+                        ## no webhook? convert to getJob task
                         if not self.webhook:
                             params = {
                                 'params': {
@@ -280,53 +283,30 @@ class Autogram:
                     else:
                         kw['params'] |= defaults['params']
                     ##
-                    error_detected = None
                     try:
+                        error_detected = None
                         self.logger.debug(f'get: {link.split("/")[-1]}')
                         async with session.get(link,**kw) as resp:
+                            data = None
                             if resp.ok:
                                 data = await resp.json()
-                                if callback:
-                                    payload = data['result']
-                                    if payload:
-                                        callback(payload)
-                                if failed_requests > 0:
-                                   failed_requests -= 1
-                                   self.failed = None
-                            else:
-                                self.logger.debug(f"{resp.status} : {await resp.json()} (endpoint:{link.split('/')[-1]}: kw: {kw}: callback: {callback})")
-                                if resp.status not in Autogram.httpIgnore:
-                                    if self.config['max_retries']: # shutdown if max_retries != 0
-                                        self.terminate.set()
-                                break
+                            self.httpRoutines.append(((resp, data), request))
                     except KeyboardInterrupt:
                         self.terminate.set()
                     except aiohttp.client_exceptions.ClientConnectorError as e:
-                        self.terminate.set()
-                        self.logger.exception(e)
                         error_detected = e
                     except aiohttp.client_exceptions.ClientOSError as e:
                         error_detected = e
                     except asyncio.exceptions.TimeoutError as e:
                         error_detected = e
                     except Exception as e:
-                        if e:
-                            self.logger.exception(e)
-                        self.terminate.set()
                         error_detected = e
                     finally:
                         if error_detected:
-                            failed_requests += 1
                             self.failed = (link,kw,callback)
-
-    @loguru.logger.catch()
-    def downloadFile(self, file_path: str):
-        url = f"https://api.telegram.org/file/bot{self.config['telegram_token']}/{file_path}"
-        res = _requests.get(url)
-        if res.ok:
-            return res.content
-        else:
-            self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
+                            self.logger.exception(error_detected)
+                #
+                await asyncio.sleep(0)
 
     @loguru.logger.catch()
     def webRequest(self, url: str, params={}, files=None):
@@ -334,17 +314,36 @@ class Autogram:
         # send request
         try:
             if files:
-                res = _requests.get(url,params=params,files=files)
+                res = requests.get(url,params=params,files=files)
             else:
-                res = _requests.get(url,params=params)
+                res = requests.get(url,params=params)
         except Exception as e:
-            self.logger.critical(f'webRequest failed: {url.split("/")[-1]}')
             self.logger.exception(e)
-            return
-        ##
-        if not res.ok:
-            return False, res, url
-        return True, json.loads(res.text)['result']
+        finally:
+            if res.ok:
+                return True, json.loads(res.text)['result']
+        #
+        return False, res, url
+
+    def shutdown(self):
+        self.terminate.set()
+        self.executor.shutdown()
+
+    #***** start API calls *****#
+    def getMe(self, me: Dict):
+        """receive and parse getMe request."""
+        self.logger.info('*** connected... ***')
+        for k,v in me.items():
+            setattr(self, k, v)
+
+    @loguru.logger.catch()
+    def downloadFile(self, file_path: str):
+        url = f"https://api.telegram.org/file/bot{self.config['telegram-token']}/{file_path}"
+        res = requests.get(url)
+        if res.ok:
+            return res.content
+        else:
+            self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
 
     def sendChatAction(self, chat_id: int, action: str):
         params = {
@@ -360,7 +359,7 @@ class Autogram:
 
     def getChat(self, chat_id: int, handler: Callable):
         url = f'{self.base_url}/getChat'
-        self.requests.put((url, {
+        self.httpRequests.put((url, {
             'params': {
                 'chat_id': chat_id
             }
@@ -368,11 +367,11 @@ class Autogram:
 
     def getWebhookInfo(self, handler: Callable):
         url = f'{self.base_url}/getWebhookInfo'
-        self.requests.put((url,None,handler))
+        self.httpRequests.put((url,None,handler))
 
     def sendMessage(self, chat_id: int, text: str, params={}):
         url = f'{self.base_url}/sendMessage'
-        self.requests.put((url, {
+        self.httpRequests.put((url, {
             'params': {
                 'chat_id': chat_id,
                 'text': text
@@ -381,7 +380,7 @@ class Autogram:
 
     def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
         url = f'{self.base_url}/forwardMessage'
-        self.requests.put((url,{
+        self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
                 'from_chat_id': from_chat_id,
@@ -391,7 +390,7 @@ class Autogram:
 
     def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
         url = f'{self.base_url}/editMessageText'
-        self.requests.put((url,{
+        self.httpRequests.put((url,{
             'params': {
                 'text':text,
                 'chat_id': chat_id,
@@ -401,7 +400,7 @@ class Autogram:
 
     def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}):
         url = f'{self.base_url}/editMessageCaption'
-        self.requests.put((url, {
+        self.httpRequests.put((url, {
             'params': {
                 'chat_id': chat_id,
                 'message_id': msg_id,
@@ -411,7 +410,7 @@ class Autogram:
 
     def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}):
         url = f'{self.base_url}/editMessageReplyMarkup'
-        self.requests.put((url,{
+        self.httpRequests.put((url,{
             'params': {
                 'chat_id':chat_id,
                 'message_id':msg_id,
@@ -421,7 +420,7 @@ class Autogram:
 
     def deleteMessage(self, chat_id: int, msg_id: int):
         url = f'{self.base_url}/deleteMessage'
-        self.requests.put((url,{
+        self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
                 'message_id': msg_id
@@ -511,4 +510,7 @@ class Autogram:
             'remove_keyboard': True,
         }|params
         return json.dumps(markup)
+
+    def __repr__(self) -> str:
+        return f"Autogram({self.config})"
 

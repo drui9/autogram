@@ -3,17 +3,15 @@ import sys
 import json
 from typing import Callable
 
-
 default_config = {
-    'tcp_timeout': 6,
-    'max_retries': 7,
-    'log_level': 'ERROR',
-    'admin_username': None,
-    'contingency_pwd': None,
-    'public_ip': None,
-    'telegram_token': None,
+    'env': 0, # {'dev': 0, 'production': 1}
+    'tcp-port': 4004,
+    'tcp-timeout': 10,
+    'log-level': 'INFO',
+    'media-quality': 'high',
+    'telegram-token': None,
+    'public-ip': None,
 }
-
 
 def load_config(config_file : str, config_path : str):
     """Load configuration file from config_path dir"""
@@ -29,12 +27,12 @@ def load_config(config_file : str, config_path : str):
     with open(config_file, 'r') as conf:
         return json.load(conf)
 
-
-def onLoadConfig(conf = 'autogram.json', confpath = '.'):
-    """Call external function when config is loaded"""
-    def wrapper(onLoadCallback: Callable):
-        return onLoadCallback(load_config(conf, confpath))
+def onStart(conf = 'autogram.json', confpath = '.'):
+    """Call custom function with config as parameter"""
+    def wrapper(func: Callable):
+        return func(load_config(conf, confpath))
     return wrapper
+#
 
+__all__ = [ 'onStart' ]
 
-__all__ = [ 'onLoadConfig' ]
