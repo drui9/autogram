@@ -98,6 +98,7 @@ class Autogram:
         worker.start()
         return worker
 
+    @loguru.logger.catch()
     async def main_loop(self):
         """Main control loop"""
         processor = asyncio.create_task(self.aioWebRequest())
@@ -180,6 +181,7 @@ class Autogram:
         handle(res)
         return
 
+    @loguru.logger.catch()
     def toThread(self, *args, callback: Callable = None, errHandler: Callable = None):
         if self.terminate.is_set():
             return
@@ -262,7 +264,7 @@ class Autogram:
                                 thread_worker = self.executor.submit(callback, payload)
                                 self.workerThreads.append((thread_worker,None,None))
                         else:
-                            self.logger.critical(f"HTTPError {resp.status} : ({link.split('/')[-1]})")
+                            self.logger.critical(f"HTTP{resp.status} : {link.split('/')[-1]} : {payload}")
             #
             # start httpHandler
             asyncio.create_task(httpHandler())
@@ -356,6 +358,7 @@ class Autogram:
         else:
             self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
 
+    @loguru.logger.catch()
     def sendChatAction(self, chat_id: int, action: str):
         params = {
             'chat_id': chat_id,
@@ -363,11 +366,12 @@ class Autogram:
         }
         return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
 
+    @loguru.logger.catch()
     def getFile(self, file_id: str):
         url = f'{self.base_url}/getFile'
-        params = { 'file_id': file_id }
-        return self.webRequest(url, params=params)
+        return self.webRequest(url, params={'file_id' : file_id})
 
+    @loguru.logger.catch()
     def getChat(self, chat_id: int, handler: Callable):
         url = f'{self.base_url}/getChat'
         self.httpRequests.put((url, {
@@ -376,19 +380,22 @@ class Autogram:
             }
         }, handler))
 
+    @loguru.logger.catch()
     def getWebhookInfo(self, handler: Callable):
         url = f'{self.base_url}/getWebhookInfo'
         self.httpRequests.put((url,None,handler))
 
-    def sendMessage(self, chat_id: int, text: str, params={}):
+    @loguru.logger.catch()
+    def sendMessage(self, chat_id: int, text: str, **kwargs):
         url = f'{self.base_url}/sendMessage'
         self.httpRequests.put((url, {
             'params': {
                 'chat_id': chat_id,
                 'text': text
-            }|params
+            }|kwargs
         }, None))
 
+    @loguru.logger.catch()
     def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
         url = f'{self.base_url}/forwardMessage'
         self.httpRequests.put((url,{
@@ -399,6 +406,7 @@ class Autogram:
             }
         },None))
 
+    @loguru.logger.catch()
     def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
         url = f'{self.base_url}/editMessageText'
         self.httpRequests.put((url,{
@@ -409,6 +417,7 @@ class Autogram:
             }|params
         },None))
 
+    @loguru.logger.catch()
     def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}):
         url = f'{self.base_url}/editMessageCaption'
         self.httpRequests.put((url, {
@@ -419,6 +428,7 @@ class Autogram:
             }|params
         }, None))
 
+    @loguru.logger.catch()
     def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}):
         url = f'{self.base_url}/editMessageReplyMarkup'
         self.httpRequests.put((url,{
@@ -429,6 +439,7 @@ class Autogram:
             }|params
         }, None))
 
+    @loguru.logger.catch()
     def deleteMessage(self, chat_id: int, msg_id: int):
         url = f'{self.base_url}/deleteMessage'
         self.httpRequests.put((url,{
@@ -438,10 +449,12 @@ class Autogram:
             }
         }, None))
 
+    @loguru.logger.catch()
     def deleteWebhook(self):
         url = f'{self.base_url}/deleteWebhook'
         return self.webRequest(url)
 
+    @loguru.logger.catch()
     def answerCallbackQuery(self, query_id,text:str= None, params : dict= None):
         url = f'{self.base_url}/answerCallbackQuery'
         params.update({
@@ -450,6 +463,7 @@ class Autogram:
         })
         return self.webRequest(url, params)
 
+    @loguru.logger.catch()
     def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str= None, params: dict= None):
         params = params or {}
         url = f'{self.base_url}/sendPhoto'
@@ -460,6 +474,7 @@ class Autogram:
         self.sendChatAction(chat_id,chat_actions.photo)
         return self.webRequest(url,params=params,files={'photo':photo_bytes})
 
+    @loguru.logger.catch()
     def sendAudio(self,chat_id: int,audio_bytes: bytes, caption: str= None, params: dict= None):
         params = params or {}
         url = f'{self.base_url}/sendAudio'
@@ -470,6 +485,7 @@ class Autogram:
         self.sendChatAction(chat_id,chat_actions.audio)
         return self.webRequest(url,params,files={'audio':audio_bytes})
 
+    @loguru.logger.catch()
     def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str= None, params: dict= None):
         params = params or {}
         url = f'{self.base_url}/sendDocument'
@@ -480,6 +496,7 @@ class Autogram:
         self.sendChatAction(chat_id,chat_actions.document)
         return self.webRequest(url,params,files={'document':document_bytes})
 
+    @loguru.logger.catch()
     def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str = None, params: dict= None ):
         params = params or {}
         url = f'{self.base_url}/sendVideo'
@@ -490,6 +507,7 @@ class Autogram:
         self.sendChatAction(chat_id,chat_actions.video)
         return self.webRequest(url,params,files={'video':video_bytes})
 
+    @loguru.logger.catch()
     def forceReply(self, params: dict= None):
         params = params or {}
         markup = {
@@ -497,6 +515,7 @@ class Autogram:
         }|params
         return json.dumps(markup)
 
+    @loguru.logger.catch()
     def getKeyboardMarkup(self, keys: list, params: dict= None):
         params = params or {}
         markup = {
@@ -504,6 +523,7 @@ class Autogram:
         }|params
         return json.dumps(markup)
 
+    @loguru.logger.catch()
     def getInlineKeyboardMarkup(self, keys: list, params: dict= None):
         params = params or {}
         markup = {
@@ -511,10 +531,12 @@ class Autogram:
         }|params
         return json.dumps(markup)
 
+    @loguru.logger.catch()
     def parseFilters(self, filters: dict= None):
         keys = list(filters.keys())
         return json.dumps(keys)
 
+    @loguru.logger.catch()
     def removeKeyboard(self, params: dict= None):
         params = params or {}
         markup = {

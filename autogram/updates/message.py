@@ -1,3 +1,4 @@
+import loguru
 from . import UpdateBase
 from typing import Dict, Callable
 from autogram import chat_actions
@@ -10,6 +11,15 @@ class Message(UpdateBase):
         'command-endpoint': dict(),
         'user-endpoint': dict()
     }
+
+
+    @classmethod
+    def getCommands(cls):
+        """Get a list of commands with their function names"""
+        out = list()
+        for val in cls.endpoints['command-endpoint']:
+            out.append(f"{val.strip('/')} - {cls.endpoints['command-endpoint'].get(val).__name__}")
+        return '\n'.join(out)
 
     def __init__(self, update: Dict):
         self.logger = self.autogram.logger
@@ -76,16 +86,18 @@ class Message(UpdateBase):
             return f
         return wrapper
 
-    def sendText(self, text: str):
+    def sendText(self, text: str, **kwargs):
         self.autogram.sendChatAction(self.sender['id'], chat_actions.typing)
-        self.autogram.sendMessage(self.sender['id'], text)
+        self.autogram.sendMessage(self.sender['id'], text, **kwargs)
 
-    def textBack(self, text: str):
+    @loguru.logger.catch
+    def textBack(self, text: str, **kwargs):
         self.autogram.sendChatAction(self.sender['id'], chat_actions.typing)
-        self.autogram.sendMessage(self.sender['id'], text, params={
+        kwargs |= {
             'reply_to_message_id' : self.id,
             'allow_sending_without_reply': "true"
-        })
+        }
+        self.autogram.sendMessage(self.sender['id'], text, **kwargs)
 
     def delete(self):
         self.autogram.deleteMessage(
