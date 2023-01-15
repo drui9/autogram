@@ -169,7 +169,7 @@ class Autogram:
             parser.autogram = self
             # todo: call in separate thread
             worker = self.executor.submit(parser, payload)
-            self.workerThreads.append(worker)
+            self.workerThreads.append((worker, None, None))
         # 
         if type(res) == list:
             for update in res:
@@ -180,23 +180,34 @@ class Autogram:
         handle(res)
         return
 
-    def toThread(self, *args):
+    def toThread(self, *args, callback: Callable = None, errHandler: Callable = None):
         if self.terminate.is_set():
             return
         #
         to_remove = list()
-        for thread in self.workerThreads:
-            if not thread.done():
+        for task in self.workerThreads:
+            tsk, cb, errh = task
+            if not tsk.done():
                 continue
+            # fetch result or exception
             try:
-                thread.exception()
+                result = tsk.result()
+                if cb:
+                    cb(result)
             except Exception as e:
-                self.logger.exception(e)
-            to_remove.append(thread)
+                if errh:
+                    errh(e)
+                else:
+                    self.logger.exception(e)
+            to_remove.append(task)
         #
         for item in to_remove:
             self.workerThreads.remove(item)
-        self.workerThreads.append(self.executor.submit(*args))
+            continue
+        #
+        task = self.executor.submit(*args)
+        self.workerThreads.append((task, callback, errHandler))
+        return task
 
     @contextmanager
     def get_request(self):
@@ -249,7 +260,7 @@ class Autogram:
                             #
                             if payload and callback:
                                 thread_worker = self.executor.submit(callback, payload)
-                                self.workerThreads.append(thread_worker)
+                                self.workerThreads.append((thread_worker,None,None))
                         else:
                             self.logger.critical(f"HTTPError {resp.status} : ({link.split('/')[-1]})")
             #

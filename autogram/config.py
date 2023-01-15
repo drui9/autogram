@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-from typing import Callable
+from typing import Callable, Dict
 
 default_config = {
     'env': 0, # {'dev': 0, 'production': 1}
@@ -25,7 +25,16 @@ def load_config(config_file : str, config_path : str):
         print(f"Please edit [{config_file}]")
         sys.exit(1)
     with open(config_file, 'r') as conf:
-        return json.load(conf)
+        return json.load(conf) | {'config-file': config_file}
+
+def save_config(config : Dict):
+    """Save configuration file to config_path dir"""
+    if config_file := config.get('config-file'):
+        with open(config_file, 'w') as conf:
+            json.dump(default_config, conf, indent=3)
+            conf.flush()
+            return True
+    return False
 
 def onStart(conf = 'autogram.json', confpath = '.'):
     """Call custom function with config as parameter"""
@@ -34,5 +43,5 @@ def onStart(conf = 'autogram.json', confpath = '.'):
     return wrapper
 #
 
-__all__ = [ 'onStart' ]
+__all__ = [ "onStart", "save_config", "load_config"]
 

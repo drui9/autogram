@@ -77,16 +77,17 @@ from .query import callbackQuery, shippingQuery, precheckoutQuery
 
 # 0x06 Upcoming features
 - Plans to cover the entire telegram API
-- Add onDisconnect and onNotification
+- Add onDisconnect and onNotification handlers
 - Add a background ngrok server if ngrok is in path, and no public ip
 - Make `retry` default behaviour, customizable with onDisconnect callback.
 
 # ChangeLog
-- Removed admin and deputy functionalities
+- save_config and load_config available from Autogram. onStart calls load_config implicitly
 - Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method
 - Added onStart(*args) handler which can be used to start the bot.
 
 # Deprecated features
+- Admin and deputy functionalities
 - Default behaviour is to forward messages to admin.
 - Admin can have an assistant.
 

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autogram"
-version = "2.0.0"
+version = "2.0.1"
 description = "An extensible telegram API wrapper"
 readme = "README.md"
 authors = [{ name = "sp3rtah", email = "ngaira14nelson@gmail.com" }]
