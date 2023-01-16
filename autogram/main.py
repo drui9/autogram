@@ -1,5 +1,4 @@
 import sys
-import time
 import json
 import loguru
 import asyncio
@@ -90,15 +89,22 @@ class Autogram:
                 ngrokconf.set_default(ngrok_config)
                 if log_ngrok := self.config.get('ngrok-logs'):
                     ngrokconf.get_default().log_event_callback = self.logger.debug
-                self.ngrok_tunnel = ngrok.connect()
-                if not log_ngrok:
-                    ngrok.get_ngrok_process().stop_monitor_thread()
-                public_ip = self.ngrok_tunnel.public_url
+                try:
+                    self.ngrok_tunnel = ngrok.connect()
+                    if not log_ngrok:
+                        ngrok.get_ngrok_process().stop_monitor_thread()
+                    public_ip = self.ngrok_tunnel.public_url
+                except Exception as e:
+                    self.logger.critical(e)
+                    self.terminate.set()
             #
-            self.webhook = f"{public_ip}/{hookPath}"
-            self.logger.debug(f'Webhook: {self.webhook}')
+            if not self.terminate.is_set():
+                self.webhook = f"{public_ip}/{hookPath}"
+                self.logger.debug(f'Webhook: {self.webhook}')
         # wrap and start main_loop
         def launch():
+            if self.terminate.is_set():
+                return
             try:
                 if sys.platform != 'linux':
                     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -107,6 +113,8 @@ class Autogram:
                 self.terminate.set()
             except Exception as e:
                 loguru.logger.exception(e)
+            finally:
+                self.terminate.set()
         #
         worker = threading.Thread(target=launch)
         worker.name = 'Autogram'
@@ -184,7 +192,6 @@ class Autogram:
                 return
             #
             parser.autogram = self
-            # todo: call in separate thread
             worker = self.executor.submit(parser, payload)
             self.worker_threads.append((worker, None, None))
         # 

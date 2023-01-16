@@ -7,12 +7,12 @@ from typing import Callable, Dict
 default_config = {
     'env': 0, # {'dev': 0, 'production': 1}
     'tcp-port': 4004,
+    'tcp-ip': 'ngrok',
     'tcp-timeout': 10,
     'log-level': 'INFO',
     'ngrok-logs': False,
-    'ngrok-token': None,
-    'public-ip': 'ngrok',
     'media-quality': 'high',
+    'ngrok-token': None,
     'telegram-token': None,
 }
 

@@ -79,6 +79,7 @@ from .query import callbackQuery, shippingQuery, precheckoutQuery
 - Plans to cover the entire telegram API
 - Add onDisconnect and onNotification handlers
 - Escape special characters in parse_mode=MarkdownV2
+- Add dev script to install/uninstall persistent ngrok service
 - Make `retry` default behaviour, customizable with onDisconnect callback.
 
 # ChangeLog
