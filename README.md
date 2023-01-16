@@ -78,13 +78,14 @@ from .query import callbackQuery, shippingQuery, precheckoutQuery
 # 0x06 Upcoming features
 - Plans to cover the entire telegram API
 - Add onDisconnect and onNotification handlers
-- Add a background ngrok server if ngrok is in path, and no public ip
+- Escape special characters in parse_mode=MarkdownV2
 - Make `retry` default behaviour, customizable with onDisconnect callback.
 
 # ChangeLog
-- save_config and load_config available from Autogram. onStart calls load_config implicitly
-- Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method
+- Added a background ngrok server with pyngrok
 - Added onStart(*args) handler which can be used to start the bot.
+- Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method
+- save_config and load_config available from Autogram. onStart calls load_config implicitly
 
 # Deprecated features
 - Admin and deputy functionalities

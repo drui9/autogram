@@ -1,4 +1,5 @@
 import sys
+import time
 import json
 import loguru
 import asyncio
@@ -9,6 +10,7 @@ from typing import Callable
 from typing import Dict, Any
 from queue import Queue, Empty
 from contextlib import contextmanager
+from pyngrok import ngrok, conf as ngrokconf
 from concurrent.futures import ThreadPoolExecutor
 #
 from autogram import *
@@ -29,7 +31,8 @@ class Autogram:
         self.update_offset = 0
         self.httpRoutines = list()
         self.httpRequests = Queue()
-        self.workerThreads = list()
+        self.worker_threads = list()
+        self.failing_endpoints = list()
         self.terminate = threading.Event()
         self.executor = ThreadPoolExecutor()
         self.port = self.config['tcp-port']
@@ -62,15 +65,15 @@ class Autogram:
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if self.config['tcp-ip']:
-            hookPath = self.config['telegram-token'].split(":")[-1].lower()
+        if public_ip := self.config['tcp-ip']:
+            hookPath = self.config['telegram-token'].split(":")[-1].lower()[:8]
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
                 response.content_type = 'application/json'
                 return json.dumps({'ok': True})
             # 
-            def runServer(server: MyServer):
+            def runServer(server: Any):
                 run(server=server, quiet=True)
             # 
             server = MyServer(host=self.host,port=self.port)
@@ -78,8 +81,21 @@ class Autogram:
             serv_thread.name = 'Autogram::Bottle'
             serv_thread.daemon = True
             serv_thread.start()
+            # check public ip availability
+            if public_ip == 'ngrok':
+                ngrok_config = ngrokconf.PyngrokConfig(
+                    ngrok_version='v3',
+                    auth_token= self.config.get('ngrok-token')
+                )
+                ngrokconf.set_default(ngrok_config)
+                if log_ngrok := self.config.get('ngrok-logs'):
+                    ngrokconf.get_default().log_event_callback = self.logger.debug
+                self.ngrok_tunnel = ngrok.connect()
+                if not log_ngrok:
+                    ngrok.get_ngrok_process().stop_monitor_thread()
+                public_ip = self.ngrok_tunnel.public_url
             #
-            self.webhook = f"{self.config['tcp-ip']}/{hookPath}"
+            self.webhook = f"{public_ip}/{hookPath}"
             self.logger.debug(f'Webhook: {self.webhook}')
         # wrap and start main_loop
         def launch():
@@ -170,7 +186,7 @@ class Autogram:
             parser.autogram = self
             # todo: call in separate thread
             worker = self.executor.submit(parser, payload)
-            self.workerThreads.append((worker, None, None))
+            self.worker_threads.append((worker, None, None))
         # 
         if type(res) == list:
             for update in res:
@@ -187,7 +203,7 @@ class Autogram:
             return
         #
         to_remove = list()
-        for task in self.workerThreads:
+        for task in self.worker_threads:
             tsk, cb, errh = task
             if not tsk.done():
                 continue
@@ -204,11 +220,11 @@ class Autogram:
             to_remove.append(task)
         #
         for item in to_remove:
-            self.workerThreads.remove(item)
+            self.worker_threads.remove(item)
             continue
         #
         task = self.executor.submit(*args)
-        self.workerThreads.append((task, callback, errHandler))
+        self.worker_threads.append((task, callback, errHandler))
         return task
 
     @contextmanager
@@ -257,14 +273,26 @@ class Autogram:
                         #
                         resp, payload = incoming
                         _, _, callback = outgoing
+                        endpoint = link.split('/')[-1]
                         if resp.ok:
+                            if endpoint in self.failing_endpoints:
+                                self.failing_endpoints.remove(endpoint)
                             self.httpRoutines.remove(item)
                             #
                             if payload and callback:
                                 thread_worker = self.executor.submit(callback, payload)
-                                self.workerThreads.append((thread_worker,None,None))
-                        else:
-                            self.logger.critical(f"HTTP{resp.status} : {link.split('/')[-1]} : {payload}")
+                                self.worker_threads.append((thread_worker,None,None))
+                            continue
+                        elif endpoint not in self.failing_endpoints:
+                            if payload:
+                                self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {endpoint} : {payload}")
+                            else:
+                                self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {outgoing}")
+                        # ignore repeated output
+                        self.failing_endpoints.append(endpoint)
+                        continue
+                    # clear handled routines
+                    self.httpRoutines.clear()
             #
             # start httpHandler
             asyncio.create_task(httpHandler())
@@ -282,7 +310,7 @@ class Autogram:
                             request = (url,params,self.updateRouter)
                         else:
                             continue
-                    link, kw, callback = request
+                    link, kw, _ = request
                     kw = kw or dict()
                     defaults = {
                         'params': {
@@ -298,25 +326,32 @@ class Autogram:
                     ##
                     try:
                         error_detected = None
-                        self.logger.debug(f'get: {link.split("/")[-1]}')
                         async with session.get(link,**kw) as resp:
                             data = None
                             if resp.ok:
                                 data = await resp.json()
+                                self.logger.debug(f'GET [ok] /{link.split("/")[-1]}')
+                            else:
+                                self.logger.debug(f'GET [err] /{link.split("/")[-1]} : {kw}')
                             self.httpRoutines.append(((resp, data), request))
                     except KeyboardInterrupt:
                         self.terminate.set()
-                    except aiohttp.client_exceptions.ClientConnectorError as e:
+                        self.logger.critical('Termination with ^C')
+                    except aiohttp.ClientConnectorError as e:
                         error_detected = e
-                    except aiohttp.client_exceptions.ClientOSError as e:
+                        self.logger.critical('ClientConnectorError')
+                    except aiohttp.ClientOSError as e:
                         error_detected = e
-                    except asyncio.exceptions.TimeoutError as e:
+                        self.logger.critical('ClientOSError')
+                    except asyncio.TimeoutError as e:
                         error_detected = e
+                        self.logger.critical('TimeoutError')
                     except Exception as e:
                         error_detected = e
+                        self.logger.critical(f'Unknown Error: {e}')
                     finally:
                         if error_detected:
-                            self.failed = (link,kw,callback)
+                            self.failed = request
                             self.logger.exception(error_detected)
                 #
                 await asyncio.sleep(0)
@@ -359,14 +394,6 @@ class Autogram:
             self.logger.critical(f'file: [{file_path} -> Download failed: {res.status_code}')
 
     @loguru.logger.catch()
-    def sendChatAction(self, chat_id: int, action: str):
-        params = {
-            'chat_id': chat_id,
-            'action': action
-        }
-        return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
-
-    @loguru.logger.catch()
     def getFile(self, file_id: str):
         url = f'{self.base_url}/getFile'
         return self.webRequest(url, params={'file_id' : file_id})
@@ -386,25 +413,37 @@ class Autogram:
         self.httpRequests.put((url,None,handler))
 
     @loguru.logger.catch()
-    def sendMessage(self, chat_id: int, text: str, **kwargs):
-        url = f'{self.base_url}/sendMessage'
-        self.httpRequests.put((url, {
-            'params': {
-                'chat_id': chat_id,
-                'text': text
-            }|kwargs
-        }, None))
+    def sendChatAction(self, chat_id: int, action: str):
+        params = {
+            'chat_id': chat_id,
+            'action': action
+        }
+        return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
 
     @loguru.logger.catch()
-    def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
-        url = f'{self.base_url}/forwardMessage'
+    def sendMessage(self, chat_id: int, text: str, **kwargs):
+        url = f'{self.base_url}/sendMessage'
         self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
-                'from_chat_id': from_chat_id,
+                'text': text,
+            } | kwargs
+        } , None))
+
+    @loguru.logger.catch()
+    def deleteMessage(self, chat_id: int, msg_id: int):
+        url = f'{self.base_url}/deleteMessage'
+        self.httpRequests.put((url,{
+            'params': {
+                'chat_id': chat_id,
                 'message_id': msg_id
             }
-        },None))
+        }, None))
+
+    @loguru.logger.catch()
+    def deleteWebhook(self):
+        url = f'{self.base_url}/deleteWebhook'
+        return self.webRequest(url)
 
     @loguru.logger.catch()
     def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
@@ -440,19 +479,15 @@ class Autogram:
         }, None))
 
     @loguru.logger.catch()
-    def deleteMessage(self, chat_id: int, msg_id: int):
-        url = f'{self.base_url}/deleteMessage'
+    def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
+        url = f'{self.base_url}/forwardMessage'
         self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
+                'from_chat_id': from_chat_id,
                 'message_id': msg_id
             }
-        }, None))
-
-    @loguru.logger.catch()
-    def deleteWebhook(self):
-        url = f'{self.base_url}/deleteWebhook'
-        return self.webRequest(url)
+        },None))
 
     @loguru.logger.catch()
     def answerCallbackQuery(self, query_id,text:str= None, params : dict= None):

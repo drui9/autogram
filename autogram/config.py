@@ -9,9 +9,11 @@ default_config = {
     'tcp-port': 4004,
     'tcp-timeout': 10,
     'log-level': 'INFO',
+    'ngrok-logs': False,
+    'ngrok-token': None,
+    'public-ip': 'ngrok',
     'media-quality': 'high',
     'telegram-token': None,
-    'public-ip': None,
 }
 
 @logger.catch

@@ -1,10 +1,11 @@
 import json
-from typing import Any
+from typing import Any, Callable
 
 class UpdateBase():
     subscribed_updates = set()
-    autogram : Any = None
-    handler = None
+    autogram : Any
+    handler : Callable
+    text: str
 
     @classmethod
     def filter_updates(cls):

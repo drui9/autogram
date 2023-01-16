@@ -2,10 +2,14 @@ import os
 from autogram.updates import Message
 from autogram import Autogram, onStart
 
+# bot commands        
 @Message.onCommand('start')
 def commandHandler(msg: Message):
     msg.delete()
-    msg.textBack(f"Hi, {msg.sender['first_name']} {msg.sender['last_name']}!",  parse_mode = 'MarkdownV2')
+    msg.sendText(
+        f"*Defined Commands*\n```python\n{msg.getCommands()}```",
+        parse_mode='MarkdownV2'
+    )
 
 @Message.onCommand('shutdown')
 def shutdownCommand(msg: Message):
@@ -34,7 +38,6 @@ def fileHandler(msg: Message):
 @onStart('autogram.json')
 def startBot(config: dict):
     bot = Autogram(config=config)
-    print(Message.getCommands())
     bot_thread = bot.send_online()
     bot_thread.join()
 
