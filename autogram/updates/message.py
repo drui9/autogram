@@ -12,7 +12,6 @@ class Message(UpdateBase):
         'user-endpoint': dict()
     }
 
-
     @classmethod
     def getCommands(cls):
         """Get a list of commands with their function names"""
