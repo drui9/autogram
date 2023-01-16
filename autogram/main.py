@@ -1,5 +1,6 @@
 import sys
 import json
+import time
 import loguru
 import asyncio
 import aiohttp
@@ -10,7 +11,7 @@ from typing import Dict, Any
 from queue import Queue, Empty
 from contextlib import contextmanager
 from pyngrok import ngrok, conf as ngrokconf
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, CancelledError
 #
 from autogram import *
 from autogram.webhook import MyServer
@@ -30,11 +31,16 @@ class Autogram:
         self.update_offset = 0
         self.httpRoutines = list()
         self.httpRequests = Queue()
-        self.worker_threads = list()
+        self.worker_threads = {
+            'io-tasks': list(),
+            'common-tasks': list(),
+            'high-priority': list(),
+        }
         self.failing_endpoints = list()
         self.terminate = threading.Event()
-        self.executor = ThreadPoolExecutor()
         self.port = self.config['tcp-port']
+        self.control_lock = threading.Lock()
+        self.executor = ThreadPoolExecutor()
         self.timeout = aiohttp.ClientTimeout(self.config['tcp-timeout'])
         self.base_url = f"{Autogram.api_url}bot{self.config['telegram-token']}"
         # 
@@ -53,6 +59,8 @@ class Autogram:
         #
         loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
         self.logger = loguru.logger
+        self.control_lock.acquire()
+        self.logger.debug('Logs initialized successfully')
 
     def mediaQuality(self):
         if (qlty := self.config.get("media-quality") or 'high') == 'high':
@@ -84,6 +92,7 @@ class Autogram:
             if public_ip == 'ngrok':
                 ngrok_config = ngrokconf.PyngrokConfig(
                     ngrok_version='v3',
+                    ngrok_path='/snap/bin/ngrok',
                     auth_token= self.config.get('ngrok-token')
                 )
                 ngrokconf.set_default(ngrok_config)
@@ -192,8 +201,7 @@ class Autogram:
                 return
             #
             parser.autogram = self
-            worker = self.executor.submit(parser, payload)
-            self.worker_threads.append((worker, None, None))
+            self.toThread(parser,payload)
         # 
         if type(res) == list:
             for update in res:
@@ -205,33 +213,41 @@ class Autogram:
         return
 
     @loguru.logger.catch()
-    def toThread(self, *args, callback: Callable = None, errHandler: Callable = None):
+    def toThread(self, *args, callback: Callable = None, errHandler: Callable = None, priority : str = ''):
         if self.terminate.is_set():
+            self.logger.debug(f"[{callable.__name__}] : Skipping execution on termination")
             return
         #
         to_remove = list()
-        for task in self.worker_threads:
-            tsk, cb, errh = task
-            if not tsk.done():
-                continue
-            # fetch result or exception
-            try:
-                result = tsk.result()
-                if cb:
-                    cb(result)
-            except Exception as e:
-                if errh:
-                    errh(e)
-                else:
-                    self.logger.exception(e)
-            to_remove.append(task)
+        for key in self.worker_threads:
+            for task in self.worker_threads[key]:
+                tsk, cb, errh = task
+                if not tsk.done():
+                    continue
+                # fet results or exceptions
+                try:
+                    result = tsk.result()
+                    if cb:
+                        cb(result)
+                except Exception as e:
+                    if errh:
+                        errh(e)
+                    else:
+                        self.logger.exception(e)
+                to_remove.append((key, self.worker_threads[key].index(task)))
         #
         for item in to_remove:
-            self.worker_threads.remove(item)
+            key, index = item
+            self.worker_threads[key].pop(index)
             continue
-        #
+        # append workers to priority groups
+        result = False
+        if not priority or (result := (priority not in list(self.worker_threads.keys()))):
+            if result:
+                self.logger.debug(f"Undefined task priority: {priority}")
+            priority = 'common-tasks'
         task = self.executor.submit(*args)
-        self.worker_threads.append((task, callback, errHandler))
+        self.worker_threads[priority].append((task, callback, errHandler))
         return task
 
     @contextmanager
@@ -287,8 +303,10 @@ class Autogram:
                             self.httpRoutines.remove(item)
                             #
                             if payload and callback:
-                                thread_worker = self.executor.submit(callback, payload)
-                                self.worker_threads.append((thread_worker,None,None))
+                                self.toThread(callback, payload)
+                                # if it was a getMe request, wait for it to finish
+                                if not self.control_lock.locked():
+                                    self.control_lock.acquire()
                             continue
                         elif endpoint not in self.failing_endpoints:
                             if payload:
@@ -365,6 +383,7 @@ class Autogram:
 
     @loguru.logger.catch()
     def webRequest(self, url: str, params={}, files=None):
+        res = None
         params = params or {}
         # send request
         try:
@@ -372,17 +391,35 @@ class Autogram:
                 res = requests.get(url,params=params,files=files)
             else:
                 res = requests.get(url,params=params)
+            #
+            if res.ok:
+                return True, json.loads(res.text)['result']
         except Exception as e:
             self.logger.exception(e)
         finally:
-            if res.ok:
-                return True, json.loads(res.text)['result']
-        #
-        return False, res, url
+            return False, res, url
 
-    def shutdown(self):
+    def shutdown(self, callback: Callable = None):
+        """callback: your exit function that takes `msg : str`"""
         self.terminate.set()
-        self.executor.shutdown()
+        exit_msg = list()
+        critical_priority = ['io-threads', 'high-priority']
+        for key in critical_priority:
+            for task in self.worker_threads[key]:
+                tsk, cb, errh = task
+                if not tsk.done() and errh:
+                    if tsk.cancel():
+                        errh(CancelledError(f'Thread leading to {cb.__name__} was canceled'))
+                    else:
+                        errh(CancelledError(f'Thread leading to {cb.__name__} rejected termination.'))
+                elif not tsk.done():
+                    exit_msg.append(f"thread to: {cb.__name__} ~ busy")
+        #
+        msg = '\n'.join(exit_msg)
+        if callback:
+            callback(msg)
+        else:
+            self.logger.debug(msg)
 
     #***** start API calls *****#
     def getMe(self, me: Dict):
@@ -390,6 +427,8 @@ class Autogram:
         self.logger.info('*** connected... ***')
         for k,v in me.items():
             setattr(self, k, v)
+        # 
+        self.control_lock.release()
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):

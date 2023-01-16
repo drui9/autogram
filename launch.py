@@ -4,7 +4,7 @@ from autogram import Autogram, onStart
 
 # bot commands        
 @Message.onCommand('start')
-def commandHandler(msg: Message):
+def startCommand(msg: Message):
     msg.delete()
     msg.sendText(
         f"*Defined Commands*\n```python\n{msg.getCommands()}```",
@@ -13,8 +13,11 @@ def commandHandler(msg: Message):
 
 @Message.onCommand('shutdown')
 def shutdownCommand(msg: Message):
-    msg.autogram.terminate.set()
     msg.delete()
+    msg.sendText('Shutting down...')
+    def exit_func(msg):
+        msg.logger.critical(msg)
+    msg.autogram.shutdown(exit_func)
 
 @Message.onMessageType('text')
 def messageHandler(msg: Message):
