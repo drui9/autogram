@@ -62,6 +62,10 @@ class Autogram:
         self.control_lock.acquire()
         self.logger.debug('Logs initialized successfully')
 
+    def ngrokLogHandler(self, msg):
+        if not self.terminate.is_set():
+            self.logger.debug(msg)
+
     def mediaQuality(self):
         if (qlty := self.config.get("media-quality") or 'high') == 'high':
             return 2
@@ -96,12 +100,9 @@ class Autogram:
                     auth_token= self.config.get('ngrok-token')
                 )
                 ngrokconf.set_default(ngrok_config)
-                if log_ngrok := self.config.get('ngrok-logs'):
-                    ngrokconf.get_default().log_event_callback = self.logger.debug
                 try:
                     self.ngrok_tunnel = ngrok.connect()
-                    if not log_ngrok:
-                        ngrok.get_ngrok_process().stop_monitor_thread()
+                    ngrok.get_ngrok_process().stop_monitor_thread()
                     public_ip = self.ngrok_tunnel.public_url
                 except Exception as e:
                     self.logger.critical(e)
@@ -214,8 +215,8 @@ class Autogram:
 
     @loguru.logger.catch()
     def toThread(self, *args, callback: Callable = None, errHandler: Callable = None, priority : str = ''):
-        if self.terminate.is_set():
-            self.logger.debug(f"[{callable.__name__}] : Skipping execution on termination")
+        if self.terminate.is_set() and self.control_lock.locked():
+            self.logger.debug(f"[{callable.__name__}] : Skipping execution.")
             return
         #
         to_remove = list()
@@ -401,9 +402,14 @@ class Autogram:
 
     def shutdown(self, callback: Callable = None):
         """callback: your exit function that takes `msg : str`"""
-        self.terminate.set()
+        # do this once to avoid blocking
+        if self.control_lock.locked():
+            return
+        # grab lock that was released in getMe()
+        self.control_lock.acquire()
+        # clean up
         exit_msg = list()
-        critical_priority = ['io-threads', 'high-priority']
+        critical_priority = ['io-tasks', 'high-priority']
         for key in critical_priority:
             for task in self.worker_threads[key]:
                 tsk, cb, errh = task
@@ -415,11 +421,14 @@ class Autogram:
                 elif not tsk.done():
                     exit_msg.append(f"thread to: {cb.__name__} ~ busy")
         #
-        msg = '\n'.join(exit_msg)
-        if callback:
-            callback(msg)
-        else:
-            self.logger.debug(msg)
+        if exit_msg:
+            msg = '\n'.join(exit_msg)
+            if callback:
+                callback(msg)
+            return msg
+        #
+        self.terminate.set()
+        return
 
     #***** start API calls *****#
     def getMe(self, me: Dict):

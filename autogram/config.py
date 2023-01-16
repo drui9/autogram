@@ -11,7 +11,6 @@ default_config = {
     'tcp-timeout': 10,
     'log-level': 'INFO',
     'ngrok-path': None,
-    'ngrok-logs': False,
     'ngrok-token': None,
     'media-quality': 'high',
     'ngrok-token': None,
@@ -44,6 +43,7 @@ def save_config(config : Dict, filepath :str =''):
             filepath = config.pop('config-file')
         with open(filepath, 'w') as conf:
             json.dump(config, conf, indent=3)
+            conf.flush()
             return True
     #
     return False
