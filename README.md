@@ -12,7 +12,7 @@ from autogram import Autogram, onStart
 
 # bot commands        
 @Message.onCommand('start')
-def commandHandler(msg: Message):
+def startCommand(msg: Message):
     msg.delete()
     msg.sendText(
         f"*Defined Commands*\n```python\n{msg.getCommands()}```",
@@ -21,8 +21,11 @@ def commandHandler(msg: Message):
 
 @Message.onCommand('shutdown')
 def shutdownCommand(msg: Message):
-    msg.autogram.terminate.set()
     msg.delete()
+    msg.sendText('Shutting down...')
+    def exit_func(msg :str):
+        msg.logger.critical(msg)
+    msg.autogram.shutdown(exit_func)
 
 @Message.onMessageType('text')
 def messageHandler(msg: Message):
@@ -47,7 +50,7 @@ def fileHandler(msg: Message):
 def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()
-    bot_thread.join() # optional. Bot terminates if main program exits
+    bot_thread.join()
 ```
 
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 
@@ -68,9 +71,28 @@ The basic idea is that you can have a running bot without handlers. To be able t
 ## 0x04 Upcoming features
 - Add onNotification handlers
 - Plans to cover the entire telegram API
-- Wait on high-priority and io-tasks before shutdown with optional timeout.
 
 ## ChangeLog
+- toThread() available in Autogram instances allow optional priority for tasks. You can:
+```python
+toThread(func, args).result() # which returns the function result, or raises exception
+
+# Using custom callback functions
+def customFunction(result):
+    print(result)
+
+def customErrHandler(err):
+    raise err
+
+toThread(func, args, callback=customFunction, errHandler=customErrHandler) # which returns the function result, or raises exception
+
+# Can also do without args
+toThread(func, priority='high') # default priority is `normal`
+
+# NB: Known priorities are high & normal
+# Do not supply a callback function if using .result(), as the callback will be called again during clean-up
+# High priority tasks are allowed to complete during bot.shutdown(). You can trigger them to shutdown using .shutdown(customFunction). customFunction should take a str, which is a report of the running threads, if any.
+```
 - Added `ngrok-path` to config. Update to point to your installed version. if not found, it'll download.
 - Added `io-tasks, high-priority and common-tasks` priority groups to threadpool workers. Do:
     ```python
@@ -87,10 +109,10 @@ The basic idea is that you can have a running bot without handlers. To be able t
 - Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method that takes kwarg which is a callbackfunction
 - save_config and load_config available from Autogram. onStart calls load_config implicitly
 
-## Deprecated features
+## Deprecated features / can be done in higher level
 - Admin and deputy functionalities
 - Default behaviour is to forward messages to admin.
-- Admin can have an assistant.
+- Admin and assistant admin functionality. You can implement in the higher leve admin functionality. 
 
 ### `footnotes`
 - short-polling and ngrok servers are available for testing.

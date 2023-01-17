@@ -10,7 +10,7 @@ default_config = {
     'tcp-ip': 'ngrok',
     'tcp-timeout': 10,
     'log-level': 'INFO',
-    'echo-responses': True,
+    'echo-responses': False,
     'media-quality': 'high',
     'ngrok-path': None,
     'ngrok-token': None,
@@ -35,17 +35,13 @@ def load_config(config_file : str, config_path : str):
     return config
 
 @logger.catch
-def save_config(config : Dict, filepath :str =''):
-    """Save configuration file to config_path dir"""
+def save_config(config :Dict):
     """config-file must be in the dictionary"""
-    if conffile := config.get('config-file') or filepath:
-        if conffile:
-            filepath = config.pop('config-file')
-        with open(filepath, 'w') as conf:
+    if conffile := config.get('config-file'):
+        with open(conffile, 'w') as conf:
             json.dump(config, conf, indent=3)
             conf.flush()
-            return True
-    #
+        return True
     return False
 
 @logger.catch

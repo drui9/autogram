@@ -15,7 +15,7 @@ def startCommand(msg: Message):
 def shutdownCommand(msg: Message):
     msg.delete()
     msg.sendText('Shutting down...')
-    def exit_func(msg):
+    def exit_func(report:str):
         msg.logger.critical(msg)
     msg.autogram.shutdown(exit_func)
 
