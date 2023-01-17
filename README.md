@@ -66,10 +66,8 @@ The basic idea is that you can have a running bot without handlers. To be able t
 - Message
 
 ## 0x04 Upcoming features
+- Add onNotification handlers
 - Plans to cover the entire telegram API
-- Add onDisconnect and onNotification handlers
-- Escape special characters in parse_mode=MarkdownV2
-- Make `retry` default behaviour, customizable with onDisconnect callback.
 - Wait on high-priority and io-tasks before shutdown with optional timeout.
 
 ## ChangeLog
@@ -82,14 +80,11 @@ The basic idea is that you can have a running bot without handlers. To be able t
 
     """
     max, min and floor are example functions, whose arguments are the numbers.
-
-    You basically wanna trigger the event handler for termination in your end, so that your threads terminate.
-    Then you can call this function, with your custom callable function which executes your own code.
     """
     ```
 - Added a background ngrok server with pyngrok
 - Added onStart(*args) handler which can be used to start the bot.
-- Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method
+- Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method that takes kwarg which is a callbackfunction
 - save_config and load_config available from Autogram. onStart calls load_config implicitly
 
 ## Deprecated features

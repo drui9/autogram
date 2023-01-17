@@ -308,6 +308,9 @@ class Autogram:
                                 # if it was a getMe request, wait for it to finish
                                 if not self.control_lock.locked():
                                     self.control_lock.acquire()
+                            elif payload:
+                                if self.config.get('echo-responses'):
+                                    self.logger.debug(payload)
                             continue
                         elif endpoint not in self.failing_endpoints:
                             if payload:

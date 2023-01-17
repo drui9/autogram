@@ -10,9 +10,9 @@ default_config = {
     'tcp-ip': 'ngrok',
     'tcp-timeout': 10,
     'log-level': 'INFO',
-    'ngrok-path': None,
-    'ngrok-token': None,
+    'echo-responses': True,
     'media-quality': 'high',
+    'ngrok-path': None,
     'ngrok-token': None,
     'telegram-token': None,
 }
