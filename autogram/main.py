@@ -203,7 +203,8 @@ class Autogram:
             if not parser:
                 return
             # todo: implement all update types then allow through
-            if parser.name != 'message':
+            done_routes = ['message', 'callback_query']
+            if parser.name not in done_routes:
                 self.logger.critical(f"Unimplemented: {parser.name}")
                 return
             #
@@ -322,6 +323,9 @@ class Autogram:
                                 if self.config.get('echo-responses'):
                                     self.logger.debug(payload)
                             continue
+                        elif resp.status == 401:
+                            self.logger.critical("Invalid token. Closing...")
+                            self.shutdown()
                         elif endpoint not in self.failing_endpoints:
                             if payload:
                                 self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {endpoint} : {payload}")

@@ -1,11 +1,13 @@
 import json
+import loguru
 from typing import Any, Callable
 
 class UpdateBase():
+    logger = loguru.logger
     subscribed_updates = set()
-    autogram : Any
-    handler : Callable
-    text: str
+    autogram : Any = None
+    handler : Callable = None
+    text: str = ''
 
     @classmethod
     def filter_updates(cls):

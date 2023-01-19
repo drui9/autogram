@@ -1,3 +1,4 @@
+from re import T
 import loguru
 from . import UpdateBase
 from typing import Dict, Callable
@@ -17,7 +18,8 @@ class Message(UpdateBase):
         """Get a list of commands with their function names"""
         out = list()
         for val in cls.endpoints['command-endpoint']:
-            out.append(f"{val.strip('/')} - {cls.endpoints['command-endpoint'].get(val).__name__}")
+            out.append(f"{val.strip('/')} - {cls.endpoints['command-endpoint'][val].__name__}")
+        out.sort()
         return '\n'.join(out)
 
     def __init__(self, update: Dict):
@@ -47,7 +49,10 @@ class Message(UpdateBase):
                 return
             #
             if handler := self.endpoints[endpoint].get(text):
-                handler(self)
+                try:
+                    handler(self)
+                except Exception as e:
+                    self.logger.exception(e)
             else:
                 self.delete()
                 self.autogram.sendMessage(
@@ -64,7 +69,10 @@ class Message(UpdateBase):
                 break
             if handler := self.endpoints[endpoint].get(key):
                 setattr(self, key, self.attachments.get(key))
-                handler(self)
+                try:
+                    handler(self)
+                except Exception as e:
+                    self.logger.exception(e)
             continue
 
     def __repr__(self):
@@ -128,5 +136,8 @@ class Message(UpdateBase):
                 'bytes': content
             }|file_info
             if handler := self.endpoints['user-endpoint'].get(key):
-                handler(self)
+                try:
+                    handler(self)
+                except Exception as e:
+                    self.logger.exception(e)
 

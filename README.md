@@ -7,8 +7,15 @@ Autogram is an easily extensible telegram BOT API wrapper. You can get to work q
 
 ```python
 import os
-from autogram.updates import Message
 from autogram import Autogram, onStart
+from autogram.updates import Message, callbackQuery
+
+@callbackQuery.addHandler
+def callBackHandler(cb :callbackQuery):
+    cb.answerCallbackQuery(text='Updated')
+    chid = cb.message['chat']['id']
+    mid = cb.message['message_id']
+    cb.autogram.deleteMessage(chid,mid)
 
 # bot commands        
 @Message.onCommand('start')
@@ -16,15 +23,23 @@ def startCommand(msg: Message):
     msg.delete()
     msg.sendText(
         f"*Defined Commands*\n```python\n{msg.getCommands()}```",
-        parse_mode='MarkdownV2'
+        parse_mode='MarkdownV2',
+        reply_markup = msg.autogram.getInlineKeyboardMarkup(
+            [
+                [{'text': 'Confirm', 'callback_data': 'confirmed'}]
+            ],
+            params = {
+                'one_time_keyboard': True
+            }
+        )
     )
 
 @Message.onCommand('shutdown')
 def shutdownCommand(msg: Message):
     msg.delete()
     msg.sendText('Shutting down...')
-    def exit_func(msg :str):
-        msg.logger.critical(msg)
+    def exit_func(report:str):
+        msg.logger.critical(report)
     msg.autogram.shutdown(exit_func)
 
 @Message.onMessageType('text')
@@ -51,6 +66,7 @@ def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()
     bot_thread.join()
+
 ```
 
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 
@@ -71,8 +87,9 @@ The basic idea is that you can have a running bot without handlers. To be able t
 ## 0x04 Upcoming features
 - Add onNotification handlers
 - Plans to cover the entire telegram API
+- Add live-reload, customizable through config
 
-## ChangeLog
+## 0x05 toThread(*args, **kwargs) usage
 - toThread() available in Autogram instances allow optional priority for tasks. You can:
 ```python
 toThread(func, args).result() # which returns the function result, or raises exception
@@ -93,6 +110,10 @@ toThread(func, priority='high') # default priority is `normal`
 # Do not supply a callback function if using .result(), as the callback will be called again during clean-up
 # High priority tasks are allowed to complete during bot.shutdown(). You can trigger them to shutdown using .shutdown(customFunction). customFunction should take a str, which is a report of the running threads, if any.
 ```
+
+
+## ChangeLog
+- Added callbackQuery handler. The object contains a dictionary copy of the outgoing message
 - Added `ngrok-path` to config. Update to point to your installed version. if not found, it'll download.
 - Added `io-tasks, high-priority and common-tasks` priority groups to threadpool workers. Do:
     ```python
@@ -117,5 +138,6 @@ toThread(func, priority='high') # default priority is `normal`
 ### `footnotes`
 - short-polling and ngrok servers are available for testing.
 - Don't run multiple bots with the same `TOKEN` as this will cause update problems
+- Sending unescaped special characters when using MarkdownV2 will return HTTP400
 - Have `fun` with whatever you're building ;)
 
