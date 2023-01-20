@@ -132,7 +132,6 @@ class Autogram:
         #
         worker = threading.Thread(target=launch)
         worker.name = 'Autogram'
-        worker.daemon = True
         worker.start()
         return worker
 

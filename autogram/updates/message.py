@@ -14,13 +14,16 @@ class Message(UpdateBase):
     }
 
     @classmethod
-    def getCommands(cls):
-        """Get a list of commands with their function names"""
+    def getCommands(cls, raw =True):
+        """Get a list of commands or (command, callbackName) tuples"""
+        if raw:
+            return list(cls.endpoints['command-endpoint'])
+        #
         out = list()
-        for val in cls.endpoints['command-endpoint']:
-            out.append(f"{val.strip('/')} - {cls.endpoints['command-endpoint'][val].__name__}")
-        out.sort()
-        return '\n'.join(out)
+        for key in cls.endpoints['command-endpoint']:
+            func = cls.endpoints['command-endpoint'][key]
+            out.append((key.strip('/'), func))
+        return out
 
     def __init__(self, update: Dict):
         self.logger = self.autogram.logger

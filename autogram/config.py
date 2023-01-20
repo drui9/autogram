@@ -14,6 +14,7 @@ default_config = {
     'media-quality': 'high',
     'ngrok-path': None,
     'ngrok-token': None,
+    'ngrok-config-path': None,
     'telegram-token': None,
 }
 
