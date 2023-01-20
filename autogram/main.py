@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import loguru
@@ -98,7 +99,8 @@ class Autogram:
                 ngrok_config = ngrokconf.PyngrokConfig(
                     ngrok_version='v3',
                     ngrok_path='/snap/bin/ngrok',
-                    auth_token= self.config.get('ngrok-token')
+                    auth_token= self.config.get('ngrok-token'),
+                    config_path= self.config.get('ngrok-config-path')
                 )
                 ngrokconf.set_default(ngrok_config)
                 try:
