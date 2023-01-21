@@ -259,9 +259,13 @@ class Autogram:
             priority = 'normal'
         #
         tsk_id = args[0].__name__
-        task = self.executor.submit(*args)
-        self.worker_threads[priority].append((tsk_id, task, callback, errHandler))
-        return task
+        try:
+            task = self.executor.submit(*args)
+            self.worker_threads[priority].append((tsk_id, task, callback, errHandler))
+            return task
+        except RuntimeError:
+            self.terminate.set()
+        return
 
     @contextmanager
     def get_request(self):
@@ -368,8 +372,8 @@ class Autogram:
                     else:
                         kw['params'] |= defaults['params']
                     ##
+                    error_detected = None
                     try:
-                        error_detected = None
                         async with session.get(link,**kw) as resp:
                             data = None
                             if resp.ok:
@@ -390,9 +394,12 @@ class Autogram:
                     except asyncio.TimeoutError as e:
                         error_detected = e
                         self.logger.critical('TimeoutError')
+                    except RuntimeError as e:
+                        error_detected = e
+                        self.terminate.set()
                     except Exception as e:
                         error_detected = e
-                        self.logger.critical(f'Unknown Error: {e}')
+                        self.logger.critical(f'Unknown Error: {type(e)}:{e}')
                     finally:
                         if error_detected:
                             self.failed = request
