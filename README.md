@@ -70,7 +70,7 @@ def startBot(config: dict):
 ```
 
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 
-1. You can use the bot handle returned by `bot = Autogram(config=config)` to terminate the telegram bot. Just call `bot.terminate.set()` from your thread to set the termination flag.
+1. You can use the bot handle returned by `bot = Autogram(config=config)` to terminate the telegram bot. Just call `bot.shutdown()` from your thread to set the termination flag.
 2. The bot has implicit chat actions. i.e typing, sending photo, etc which are invoked when you call reply functions on update objects.
 
 ## 0x02 Why AutoGram?
@@ -127,8 +127,8 @@ toThread(func, priority='high') # default priority is `normal`
     ```
 - Added a background ngrok server with pyngrok
 - Added onStart(*args) handler which can be used to start the bot.
-- Autogram has a reusable ThreadPoolExecutor using a .toThread(*args) method that takes kwarg which is a callbackfunction
-- save_config and load_config available from Autogram. onStart calls load_config implicitly
+- Autogram has a reusable ThreadPoolExecutor using a `bot.toThread(*args)`
+- onStart calls load_config implicitly, and passes it to decorated function. Bot can be instantiated here.
 
 ## Deprecated features / can be done in higher level
 - Admin and deputy functionalities

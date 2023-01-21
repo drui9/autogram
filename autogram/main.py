@@ -1,4 +1,3 @@
-import os
 import sys
 import json
 import loguru
@@ -109,7 +108,7 @@ class Autogram:
                     public_ip = self.ngrok_tunnel.public_url
                 except Exception as e:
                     self.logger.critical(e)
-                    self.terminate.set()
+                    self.shutdown()
             #
             self.public_ip = public_ip
             if not self.terminate.is_set():
@@ -124,11 +123,12 @@ class Autogram:
                     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
                 asyncio.run(self.main_loop())
             except KeyboardInterrupt:
-                self.terminate.set()
+                self.shutdown()
             except Exception as e:
-                loguru.logger.exception(e)
+                self.logger.exception(e)
             finally:
-                self.terminate.set()
+                if not self.terminate.is_set():
+                    self.shutdown()
         #
         worker = threading.Thread(target=launch)
         worker.name = 'Autogram'
@@ -158,8 +158,10 @@ class Autogram:
         #
         self.terminate.set()
         if self.worker_threads['high']:
+            self.logger.debug("Blocking on high priority tasks.")
             self.executor.shutdown()
         else:
+            self.logger.debug("Blocking on normal priority tasks.")
             self.executor.shutdown(wait=False)
         self.logger.info('Autogram terminated.')
 
@@ -229,7 +231,7 @@ class Autogram:
         return
 
     @loguru.logger.catch()
-    def toThread(self, *args, callback: Callable = None, errHandler: Callable = None, priority : str = None):
+    def toThread(self, *args, callback :Callable|None = None, errHandler :Callable|None = None, priority :str|None = None):
         if self.locks['session'].locked():
             self.logger.debug(f"[{args[0].__name__}] : Blocked execution")
             return
@@ -323,7 +325,9 @@ class Autogram:
                                 self.toThread(callback, payload)
                                 # if it was a getMe request, wait for it to finish
                                 if self.locks['getMe'].locked():
-                                    self.locks['getMe'].acquire()
+                                    while not self.terminate.is_set():
+                                        if self.locks['getMe'].acquire(timeout=3):
+                                            break
                             elif payload:
                                 if self.config.get('echo-responses'):
                                     self.logger.debug(payload)
@@ -364,7 +368,7 @@ class Autogram:
                         'params': {
                             "limit": 81,
                             "offset": self.update_offset,
-                            "timeout": self.timeout.total - 1,
+                            "timeout": self.timeout.total,
                         }
                     }
                     if not kw.get('params'):
@@ -384,26 +388,23 @@ class Autogram:
                             self.httpRoutines.append(((resp, data), request))
                     except KeyboardInterrupt:
                         self.terminate.set()
-                        self.logger.critical('Termination with ^C')
                     except aiohttp.ClientConnectorError as e:
                         error_detected = e
-                        self.logger.critical('ClientConnectorError')
                     except aiohttp.ClientOSError as e:
                         error_detected = e
-                        self.logger.critical('ClientOSError')
                     except asyncio.TimeoutError as e:
                         error_detected = e
-                        self.logger.critical('TimeoutError')
                     except RuntimeError as e:
                         error_detected = e
                         self.terminate.set()
+                        self.logger.exception(e)
                     except Exception as e:
                         error_detected = e
-                        self.logger.critical(f'Unknown Error: {type(e)}:{e}')
+                        self.terminate.set()
+                        self.logger.exception(e)
                     finally:
                         if error_detected:
                             self.failed = request
-                            self.logger.exception(error_detected)
                 #
                 await asyncio.sleep(0)
 
@@ -425,14 +426,15 @@ class Autogram:
         finally:
             return False, res, url
 
-    def shutdown(self, callback: Callable = None):
+    def shutdown(self, callback :Callable|None = None):
         """callback: your exit function that takes `msg : str`"""
         if self.locks['session'].locked() or self.terminate.is_set():
             return
         # block further updates
         ngrok.disconnect(self.public_ip)
         # prevent toThread in subsequent calls
-        self.locks['session'].acquire()
+        if not self.locks['session'].locked():
+            self.locks['session'].acquire()
         #
         # clean up
         for task in self.worker_threads['normal']:
@@ -480,8 +482,8 @@ class Autogram:
             except Exception as e:
                 self.logger.exception(e)
         # 
-        self.logger.info('Shutdown initiated...')
         self.terminate.set()
+        self.logger.info('Shutdown initiated...')
         return
 
     #***** start API calls *****#
