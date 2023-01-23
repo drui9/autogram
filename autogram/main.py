@@ -21,6 +21,10 @@ class Autogram:
     api_url = 'https://api.telegram.org/'
 
     def __init__(self, config: Dict):
+        self.token :str|None = config.get('telegram-token')
+        if not self.token:
+            raise RuntimeError('Missing bot token!')
+        #
         self.config = config
         self._initialize_()
 
@@ -36,8 +40,8 @@ class Autogram:
         self.terminate = threading.Event()
         self.port = self.config['tcp-port']
         self.executor = ThreadPoolExecutor()
+        self.base_url = f"{Autogram.api_url}bot{self.token}"
         self.timeout = aiohttp.ClientTimeout(self.config['tcp-timeout'])
-        self.base_url = f"{Autogram.api_url}bot{self.config['telegram-token']}"
         #
         self.worker_threads = {
             'normal': list(),
@@ -77,8 +81,10 @@ class Autogram:
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
+        if not self.token:
+            raise RuntimeError("Send online without token?!")
         if public_ip := self.config['tcp-ip']:
-            hookPath = self.config['telegram-token'].split(":")[-1].lower()[:8]
+            hookPath = self.token.split(":")[-1].lower()[:8]
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
@@ -497,7 +503,7 @@ class Autogram:
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):
-        url = f"https://api.telegram.org/file/bot{self.config['telegram-token']}/{file_path}"
+        url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
         res = requests.get(url)
         if res.ok:
             return res.content
