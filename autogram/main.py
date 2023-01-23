@@ -103,7 +103,7 @@ class Autogram:
             if public_ip == 'ngrok':
                 ngrok_config = ngrokconf.PyngrokConfig(
                     ngrok_version='v3',
-                    ngrok_path='/snap/bin/ngrok',
+                    ngrok_path= self.config.get('ngrok-path'),
                     auth_token= self.config.get('ngrok-token'),
                     config_path= self.config.get('ngrok-config-path')
                 )
