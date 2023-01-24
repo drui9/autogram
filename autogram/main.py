@@ -270,7 +270,7 @@ class Autogram:
             to_remove.clear()
         # shutdown executor
         if not workers:
-            self.locks['pool'].release()
+            self.guard['lock'].release()
             return
         elif self.worker_threads['high'] or self.worker_threads['normal']:
             self.logger.debug("Terminating worker threads...")
