@@ -13,9 +13,7 @@ from autogram.updates import Message, callbackQuery
 @callbackQuery.addHandler
 def callBackHandler(cb :callbackQuery):
     cb.answerCallbackQuery(text='Updated')
-    chid = cb.message['chat']['id']
-    mid = cb.message['message_id']
-    cb.autogram.deleteMessage(chid,mid)
+    cb.delete()
 
 # bot commands        
 @Message.onCommand('start')
@@ -38,9 +36,9 @@ def startCommand(msg: Message):
 def shutdownCommand(msg: Message):
     msg.delete()
     msg.sendText('Shutting down...')
-    def exit_func(report:str):
-        msg.logger.critical(report)
-    msg.autogram.shutdown(exit_func)
+    def exit_func():
+        print("Custom clean-up function!")
+    msg.autogram.shutdown(exit_func) # arg to shutdown is optional
 
 @Message.onMessageType('text')
 def messageHandler(msg: Message):
@@ -66,7 +64,6 @@ def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()
     bot_thread.join()
-
 ```
 
 The above implementation assumes you want to control your bot through telegram messages only, as calling join on `bot.send_online(...)` which returns a thread object will block. If you intend to use the bot alongside other code, call `bot.send_online(...)` and leave it at that. The bot thread will terminate when your program finishes execution. 

@@ -28,9 +28,9 @@ def startCommand(msg: Message):
 def shutdownCommand(msg: Message):
     msg.delete()
     msg.sendText('Shutting down...')
-    def exit_func(report:str):
-        msg.logger.critical(report)
-    msg.autogram.shutdown(exit_func)
+    def exit_func():
+        print("Custom clean-up function!")
+    msg.autogram.shutdown(exit_func) # arg to shutdown is optional
 
 @Message.onMessageType('text')
 def messageHandler(msg: Message):

@@ -37,7 +37,6 @@ class Autogram:
         self.ngrok_tunnel = None
         self.httpRoutines = list()
         self.httpRequests = Queue()
-        self.pendingWorkers =  Queue()
         self.failing_endpoints = list()
         self.terminate = threading.Event()
         self.port = self.config['tcp-port']
@@ -45,12 +44,17 @@ class Autogram:
         self.base_url = f"{Autogram.api_url}bot{self.token}"
         self.timeout = aiohttp.ClientTimeout(self.config['tcp-timeout'])
         #
+        self.guard = {
+            'lock': threading.Lock(),
+            'pending': Queue(),
+            'thread': None
+        }
+        #
         self.worker_threads = {
             'normal': list(),
             'high': list(),
         }
         self.locks = {
-            'pool': threading.Lock(),
             'session': threading.Lock(),
             'getMe': threading.Lock()
         }
@@ -235,11 +239,11 @@ class Autogram:
     def threadGuard(self):
         workers = 0
         to_remove = list()
-        self.locks['pool'].acquire()
+        self.guard['lock'].acquire()
         while not self.terminate.is_set():
             if not workers:
                 try:
-                    worker = self.pendingWorkers.get(timeout=3)
+                    worker = self.guard['pending'].get(timeout=3)
                 except Empty:
                     continue
                 priority, work = worker
@@ -268,51 +272,44 @@ class Autogram:
         if not workers:
             self.locks['pool'].release()
             return
-        elif self.worker_threads['high']:
-            self.logger.debug("Blocking on high priority tasks.")
-            self.executor.shutdown(wait=True)
-        else:
-            self.logger.debug("Blocking on normal priority tasks.")
+        elif self.worker_threads['high'] or self.worker_threads['normal']:
+            self.logger.debug("Terminating worker threads...")
+            #
+            for task in self.worker_threads['normal']:
+                tsk_id, tsk, cb, _ = task
+                if not tsk.done() and not tsk.running():
+                    if tsk.cancel():
+                        self.logger.debug(f"[{tsk_id}] canceled.")
+                    else:
+                        self.logger.debug(f"[{tsk_id}] rejected cancel request.")
+                elif done := tsk.done() and cb and not tsk.exception():
+                    self.logger.debug(f"[{tsk_id}] completed but was ignored on termination.")
+                elif done and (e := tsk.exception()):
+                    self.logger.exception(e)
+                continue
+            #
+            for worker in self.worker_threads['high']:
+                tsk_id, tsk, cb, _ = worker
+                if tsk.done():
+                    to_remove.append(('high',worker))
+                    # propagate result
+                    if cb and not tsk.exception():
+                        cb(tsk.result())
+                    elif e := tsk.exception():
+                        self.logger.exception(e)
+                        self.logger.debug(f"[{tsk_id}] finished with an error.")
+                elif not tsk.running():
+                    if tsk.cancel():
+                        self.logger.debug(f"[{tsk_id}] : Not started! Canceled.")
+                    else:
+                        self.logger.debug(f"[{tsk_id}] : Cancel failed!")
+                else:
+                    self.logger.debug(f"[{tsk_id}] : thread is busy!")
+                continue
             self.executor.shutdown(wait=False, cancel_futures=True)
         #
-        # clean up
-        for task in self.worker_threads['normal']:
-            tsk_id, tsk, cb, _ = task
-            if not tsk.done() and not tsk.running():
-                if tsk.cancel():
-                    self.logger.debug(f"[{tsk_id}] canceled.")
-                else:
-                    self.logger.debug(f"[{tsk_id}] rejected cancel request.")
-            elif done := tsk.done() and cb and not tsk.exception():
-                self.logger.debug(f"[{tsk_id}] completed but was ignored on termination.")
-            elif done and (e := tsk.exception()):
-                self.logger.exception(e)
-            continue
-        #
-        priority_list = list()
-        for worker in self.worker_threads['high']:
-            tsk_id, tsk, cb, _ = worker
-            if tsk.done():
-                to_remove.append(('high',worker))
-                # propagate result
-                if cb and not tsk.exception():
-                    cb(tsk.result())
-                elif e := tsk.exception():
-                    self.logger.exception(e)
-                    priority_list.append(f"[{tsk_id}] finished with an error.")
-            elif not tsk.running():
-                if tsk.cancel():
-                    priority_list.append(f"[{tsk_id}] : Not started! Canceled.")
-                else:
-                    priority_list.append(f"[{tsk_id}] : Cancel failed!")
-            else:
-                priority_list.append(f"[{tsk_id}] : thread is busy!")
-            continue
-        # build logout report
-        for item in priority_list:
-            self.logger.debug(item)
-        #
-        self.locks['pool'].release()
+        self.logger.debug("Tasks terminated.")
+        self.guard['lock'].release()
         return
 
     @loguru.logger.catch()
@@ -321,11 +318,10 @@ class Autogram:
             self.logger.debug(f"[{args[0].__name__}] : Blocked execution")
             return
         #
-        if not self.locks['pool'].locked():
-            guard = threading.Thread(target=self.threadGuard)
-            guard.name = 'Autogram::ThreadGuard'
-            guard.daemon = True
-            guard.start()
+        if not self.guard['lock'].locked():
+            self.guard['thread'] = threading.Thread(target=self.threadGuard)
+            self.guard['thread'].name = 'Autogram::ThreadGuard'
+            self.guard['thread'].start()
         # append worker to priority group
         result = False
         if not priority or (result := (priority not in list(self.worker_threads.keys()))):
@@ -336,7 +332,7 @@ class Autogram:
         tsk_id = args[0].__name__
         try:
             task = self.executor.submit(*args)
-            self.pendingWorkers.put((priority, (tsk_id, task, callback, errHandler)))
+            self.guard['pending'].put((priority, (tsk_id, task, callback, errHandler)))
             return task
         except RuntimeError:
             self.terminate.set()
@@ -505,22 +501,24 @@ class Autogram:
             return
         # block further updates
         ngrok.disconnect(self.public_ip)
-        self.terminate.set()
-        # prevent toThread in subsequent calls
-        if not self.locks['session'].locked():
-            self.locks['session'].acquire()
-        # terminate and wait for threadGuard
-        self.logger.info('Waiting for threads to exit...')
-        self.terminate.set()
-        self.locks['pool'].acquire()
         #
+        # start termination
+        self.terminate.set()
         if callback:
             try:
                 callback()
             except Exception as e:
                 self.logger.exception(e)
-        # 
-        self.logger.info('Autogram terminated.')
+        # prevent toThread in subsequent calls
+        if not self.locks['session'].locked():
+            self.locks['session'].acquire()
+        # terminate and wait for threadGuard
+        self.logger.info('Autogram::terminating...')
+        self.terminate.set()
+        if self.guard['lock'].locked():
+            self.guard['thread'].join()
+        #
+        self.logger.info('Autogram::terminated.')
         return
 
     #***** start API calls *****#
@@ -638,8 +636,9 @@ class Autogram:
         },None))
 
     @loguru.logger.catch()
-    def answerCallbackQuery(self, query_id,text:str= None, params : dict= None):
+    def answerCallbackQuery(self, query_id,text:str|None = None, params : dict|None = None):
         url = f'{self.base_url}/answerCallbackQuery'
+        params = params or {}
         params.update({
             'callback_query_id':query_id,
             'text':text
@@ -647,7 +646,7 @@ class Autogram:
         return self.webRequest(url, params)
 
     @loguru.logger.catch()
-    def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str= None, params: dict= None):
+    def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str|None = None, params: dict|None = None):
         params = params or {}
         url = f'{self.base_url}/sendPhoto'
         params.update({
@@ -658,7 +657,7 @@ class Autogram:
         return self.webRequest(url,params=params,files={'photo':photo_bytes})
 
     @loguru.logger.catch()
-    def sendAudio(self,chat_id: int,audio_bytes: bytes, caption: str= None, params: dict= None):
+    def sendAudio(self,chat_id: int,audio_bytes: bytes, caption: str|None = None, params: dict|None = None):
         params = params or {}
         url = f'{self.base_url}/sendAudio'
         params.update({
@@ -669,7 +668,7 @@ class Autogram:
         return self.webRequest(url,params,files={'audio':audio_bytes})
 
     @loguru.logger.catch()
-    def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str= None, params: dict= None):
+    def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None):
         params = params or {}
         url = f'{self.base_url}/sendDocument'
         params.update({
@@ -680,7 +679,7 @@ class Autogram:
         return self.webRequest(url,params,files={'document':document_bytes})
 
     @loguru.logger.catch()
-    def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str = None, params: dict= None ):
+    def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str|None = None, params: dict|None = None ):
         params = params or {}
         url = f'{self.base_url}/sendVideo'
         params.update({
@@ -691,7 +690,7 @@ class Autogram:
         return self.webRequest(url,params,files={'video':video_bytes})
 
     @loguru.logger.catch()
-    def forceReply(self, params: dict= None):
+    def forceReply(self, params: dict|None = None):
         params = params or {}
         markup = {
             'force_reply': True,
@@ -699,7 +698,7 @@ class Autogram:
         return json.dumps(markup)
 
     @loguru.logger.catch()
-    def getKeyboardMarkup(self, keys: list, params: dict= None):
+    def getKeyboardMarkup(self, keys: list, params: dict|None = None):
         params = params or {}
         markup = {
             "keyboard":[row for row in keys]
@@ -707,7 +706,7 @@ class Autogram:
         return json.dumps(markup)
 
     @loguru.logger.catch()
-    def getInlineKeyboardMarkup(self, keys: list, params: dict= None):
+    def getInlineKeyboardMarkup(self, keys: list, params: dict|None = None):
         params = params or {}
         markup = {
             'inline_keyboard':keys
@@ -715,12 +714,13 @@ class Autogram:
         return json.dumps(markup)
 
     @loguru.logger.catch()
-    def parseFilters(self, filters: dict= None):
+    def parseFilters(self, filters: dict|None = None):
+        filters = filters or {}
         keys = list(filters.keys())
         return json.dumps(keys)
 
     @loguru.logger.catch()
-    def removeKeyboard(self, params: dict= None):
+    def removeKeyboard(self, params: dict|None = None):
         params = params or {}
         markup = {
             'remove_keyboard': True,
