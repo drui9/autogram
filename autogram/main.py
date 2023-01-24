@@ -380,11 +380,14 @@ class Autogram:
                         continue
                     #
                     for item in self.httpRoutines:
-                        incoming, outgoing = item
+                        if self.terminate.is_set():
+                            return
                         #
+                        incoming, outgoing = item
                         resp, payload = incoming
                         _, _, callback = outgoing
                         endpoint = link.split('/')[-1]
+                        #
                         if resp.ok:
                             if endpoint in self.failing_endpoints:
                                 self.failing_endpoints.remove(endpoint)
@@ -445,6 +448,9 @@ class Autogram:
                     else:
                         kw['params'] |= defaults['params']
                     ##
+                    if self.terminate.is_set():
+                        return
+                    #
                     error_detected = None
                     try:
                         async with session.get(link,**kw) as resp:
