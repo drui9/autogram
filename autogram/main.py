@@ -32,6 +32,7 @@ class Autogram:
     def _initialize_(self):
         self.webhook = None
         self.host = '0.0.0.0'
+        self.deleted_ = set()
         self.public_ip = None
         self.update_offset = 0
         self.ngrok_tunnel = None
@@ -91,7 +92,7 @@ class Autogram:
         if not self.token:
             raise RuntimeError("Send online without token?!")
         if public_ip := self.config['tcp-ip']:
-            hookPath = self.token.split(":")[-1].lower()[:8]
+            hookPath = self.token.split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
                 self.updateRouter(request.json)
@@ -471,8 +472,6 @@ class Autogram:
                         error_detected = e
                     except RuntimeError as e:
                         error_detected = e
-                        self.terminate.set()
-                        self.logger.exception(e)
                     except Exception as e:
                         error_detected = e
                         self.terminate.set()
@@ -573,7 +572,7 @@ class Autogram:
         return self.webRequest(f'{self.base_url}/sendChatAction', params=params)
 
     @loguru.logger.catch()
-    def sendMessage(self, chat_id: int, text: str, **kwargs):
+    def sendMessage(self, chat_id :int|str, text :str, **kwargs):
         url = f'{self.base_url}/sendMessage'
         self.httpRequests.put((url,{
             'params': {
@@ -584,6 +583,10 @@ class Autogram:
 
     @loguru.logger.catch()
     def deleteMessage(self, chat_id: int, msg_id: int):
+        if msg_id in self.deleted_:
+            self.logger.debug(f'Double delete: ({chat_id}, {msg_id})')
+            return
+        self.deleted_.add(msg_id)
         url = f'{self.base_url}/deleteMessage'
         self.httpRequests.put((url,{
             'params': {
@@ -642,12 +645,13 @@ class Autogram:
         },None))
 
     @loguru.logger.catch()
-    def answerCallbackQuery(self, query_id,text:str|None = None, params : dict|None = None):
+    def answerCallbackQuery(self, query_id, text :str|None = None, params : dict|None = None):
         url = f'{self.base_url}/answerCallbackQuery'
         params = params or {}
+        text = text or ''
         params.update({
             'callback_query_id':query_id,
-            'text':text
+            'text': text[:199] # 200 max characters
         })
         return self.webRequest(url, params)
 
