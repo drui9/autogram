@@ -165,6 +165,7 @@ class Autogram:
             def check_webhook(info: dict):
                 if info['url']:
                     self.deleteWebhook()
+                self.logger.critical(info)
             self.getWebhookInfo(check_webhook)
         #
         await asyncio.sleep(0)    # allow getMe to run
@@ -400,6 +401,7 @@ class Autogram:
                                 if self.locks['getMe'].locked():
                                     while not self.terminate.is_set():
                                         if self.locks['getMe'].acquire(timeout=3):
+                                            self.logger.debug('waiting for getMe')
                                             break
                             elif payload:
                                 if self.config.get('echo-responses'):
@@ -601,14 +603,14 @@ class Autogram:
         return self.webRequest(url)
 
     @loguru.logger.catch()
-    def editMessageText(self, chat_id: int, msg_id: int, text: str, params={}):
+    def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs):
         url = f'{self.base_url}/editMessageText'
         self.httpRequests.put((url,{
             'params': {
                 'text':text,
                 'chat_id': chat_id,
                 'message_id': msg_id
-            }|params
+            } | kwargs
         },None))
 
     @loguru.logger.catch()
