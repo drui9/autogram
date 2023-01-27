@@ -584,19 +584,21 @@ class Autogram:
 
     @loguru.logger.catch()
     def sendMessage(self, chat_id :int|str, text :str, **kwargs):
+        callback = None
+        if 'callback' in kwargs.keys():
+            callback = kwargs.pop('callback')
         url = f'{self.base_url}/sendMessage'
         self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
                 'text': text,
             } | kwargs
-        } , None))
+        } , callback))
 
     @loguru.logger.catch()
     def deleteMessage(self, chat_id: int, msg_id: int):
         if msg_id in self.deleted_:
-            self.logger.debug(f'Double delete: ({chat_id}, {msg_id})')
-            return
+            return False
         self.deleted_.add(msg_id)
         url = f'{self.base_url}/deleteMessage'
         self.httpRequests.put((url,{
@@ -605,6 +607,7 @@ class Autogram:
                 'message_id': msg_id
             }
         }, None))
+        return True
 
     @loguru.logger.catch()
     def deleteWebhook(self):
@@ -613,8 +616,9 @@ class Autogram:
 
     @loguru.logger.catch()
     def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs):
+        if msg_id in self.deleted_:
+            return False
         url = f'{self.base_url}/editMessageText'
-        self.logger.critical(kwargs)
         self.httpRequests.put((url, {
             'params': {
                 'text':text,
@@ -622,6 +626,7 @@ class Autogram:
                 'message_id': msg_id
             } | kwargs
         },None))
+        return True
 
     @loguru.logger.catch()
     def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}):
