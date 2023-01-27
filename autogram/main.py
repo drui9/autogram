@@ -59,7 +59,6 @@ class Autogram:
         }
         self.locks = {
             'session': threading.Lock(),
-            'getMe': threading.Lock()
         }
         # 
         logger_format = (
@@ -77,8 +76,6 @@ class Autogram:
         #
         loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
         self.logger = loguru.logger
-        # lock aioWebRequest:httpHandler thread till getMe runs
-        self.locks['getMe'].acquire()
         return
 
     def mediaQuality(self):
@@ -403,12 +400,6 @@ class Autogram:
                     #
                     if (data := payload.get('result')) and callback:
                         self.toThread(callback, data)
-                        # if it was a getMe request, wait for it to finish
-                        if self.locks['getMe'].locked():
-                            self.logger.debug('Waiting for getMe()')
-                            while not self.terminate.is_set():
-                                if self.locks['getMe'].acquire(timeout=3):
-                                    break
                     elif self.config.get('echo-responses'):
                             self.logger.debug(payload)
                     continue
@@ -470,9 +461,7 @@ class Autogram:
                             data = None
                             if resp.ok:
                                 data = await resp.json()
-                                self.logger.debug(f'[ok] GET /{link.split("/")[-1]}')
-                            else:
-                                self.logger.debug(f'[err] GET /{link.split("/")[-1]} : {kw}')
+                            self.logger.debug(f'[{resp.status}] GET /{link.split("/")[-1]}')
                             self.httpRoutines.append(((resp, data), request))
                             await asyncio.sleep(0)
                     except KeyboardInterrupt:
@@ -547,8 +536,6 @@ class Autogram:
         """receive and parse getMe request."""
         for k,v in me.items():
             setattr(self, k, v)
-        # allow aioWebRequest to continue
-        self.locks['getMe'].release()
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):
@@ -622,6 +609,7 @@ class Autogram:
     def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs):
         if msg_id in self.deleted_:
             return False
+        #
         url = f'{self.base_url}/editMessageText'
         self.httpRequests.put((url, {
             'params': {
