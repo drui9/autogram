@@ -249,14 +249,14 @@ class Autogram:
         to_remove = list()
         self.guard['lock'].acquire()
         while not self.terminate.is_set():
-            if not workers:
-                try:
-                    worker = self.guard['pending'].get(timeout=3)
-                except Empty:
-                    continue
+            try:
+                worker = self.guard['pending'].get(timeout=3)
                 priority, work = worker
+                #
                 self.worker_threads[priority].append(work)
                 workers += 1
+            except Empty:
+                continue
             #
             for key in self.worker_threads:
                 for task in self.worker_threads[key]:
@@ -385,7 +385,7 @@ class Autogram:
     async def httpHandler(self):
         while not self.terminate.is_set():
             if not self.httpRoutines:
-                await asyncio.sleep(0)
+                await asyncio.sleep(2)
                 continue
             #
             for item in self.httpRoutines:
@@ -405,6 +405,7 @@ class Autogram:
                         self.toThread(callback, data)
                         # if it was a getMe request, wait for it to finish
                         if self.locks['getMe'].locked():
+                            self.logger.debug('Waiting for getMe()')
                             while not self.terminate.is_set():
                                 if self.locks['getMe'].acquire(timeout=3):
                                     break
@@ -517,7 +518,10 @@ class Autogram:
         if self.locks['session'].locked() or self.terminate.is_set():
             return
         # block further updates
-        ngrok.disconnect(self.public_ip)
+        try:
+            ngrok.disconnect(self.public_ip)
+        except:
+            pass
         #
         # start termination
         self.terminate.set()
