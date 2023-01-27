@@ -1,5 +1,5 @@
 run:
-	@./venv/bin/python3 launch.py
+	@clear;./venv/bin/python3 launch.py
 
 build:
 	@./venv/bin/python3 -m build

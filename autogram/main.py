@@ -1,5 +1,6 @@
 import sys
 import json
+import time
 import loguru
 import asyncio
 import aiohttp
@@ -35,6 +36,7 @@ class Autogram:
         self.deleted_ = set()
         self.public_ip = None
         self.update_offset = 0
+        self.seenUpdates= list()
         self.ngrok_tunnel = None
         self.httpRoutines = list()
         self.httpRequests = Queue()
@@ -163,9 +165,9 @@ class Autogram:
             }, None))
         else:   # delete webhook
             def check_webhook(info: dict):
-                if info['url']:
-                    self.deleteWebhook()
-                self.logger.critical(info)
+                if url := info['url']:
+                    self.logger.debug(f'Webhook deleted: {url}')
+            self.deleteWebhook()
             self.getWebhookInfo(check_webhook)
         #
         await asyncio.sleep(0)    # allow getMe to run
@@ -176,7 +178,11 @@ class Autogram:
     def updateRouter(self, res: Any):
         """receive and route updates"""
         def handle(update: Dict):
+            if (uid := update['update_id']) in self.seenUpdates:
+                return
+            #
             parser = None
+            self.seenUpdates.append(uid)
             # parse update
             if payload:=update.get(Message.name):
                 if payload['chat']['type'] == 'private':
@@ -259,12 +265,15 @@ class Autogram:
                     if not tsk.done():
                         continue
                     # fetch results or exceptions
-                    if e := tsk.exception() and errh:
-                        errh(e)
-                    elif e:
-                        self.logger.exception(e)
-                    elif cb:
-                        cb(tsk.result())
+                    try:
+                        result = tsk.result()
+                        if cb:
+                            self.toThread(cb, result)
+                    except Exception as e:
+                        if errh:
+                            errh(e)
+                        else:
+                            self.logger.exception(e)
                     to_remove.append((key, task))
                     workers -= 1
             #
@@ -344,8 +353,11 @@ class Autogram:
     def get_request(self):
         """fetch pending or failed task from tasks"""
         if self.failed:
-            self.logger.info('Retrying failed request...')
-            yield self.failed
+            prev = self.failed
+            self.failed = None
+            yield prev
+            if prev == self.failed:
+                time.sleep(2)
             return
         elif self.webhook:
             if not self.terminate.is_set():
@@ -367,66 +379,62 @@ class Autogram:
             yield self.httpRequests.get(block=False)
             return
         yield None
+        return
+
+    @loguru.logger.catch
+    async def httpHandler(self):
+        while not self.terminate.is_set():
+            if not self.httpRoutines:
+                await asyncio.sleep(0)
+                continue
+            #
+            for item in self.httpRoutines:
+                if self.terminate.is_set():
+                    return
+                #
+                incoming, outgoing = item
+                resp, payload = incoming
+                link, _, callback = outgoing
+                endpoint = link.split('/')[-1]
+                #
+                if resp.ok:
+                    if endpoint in self.failing_endpoints:
+                        self.failing_endpoints.remove(endpoint)
+                    #
+                    if (data := payload.get('result')) and callback:
+                        self.toThread(callback, data)
+                        # if it was a getMe request, wait for it to finish
+                        if self.locks['getMe'].locked():
+                            while not self.terminate.is_set():
+                                if self.locks['getMe'].acquire(timeout=3):
+                                    break
+                    elif self.config.get('echo-responses'):
+                            self.logger.debug(payload)
+                    continue
+                elif resp.status == 401:
+                    self.logger.critical("Invalid token. Closing...")
+                    self.shutdown()
+                elif endpoint not in self.failing_endpoints:
+                    if payload:
+                        self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {endpoint} : {payload}")
+                    else:
+                        self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {outgoing}")
+                # ignore repeated output
+                self.failing_endpoints.append(endpoint)
+                continue
+            # clear handled routines
+            self.httpRoutines.clear()
 
     @loguru.logger.catch()
     async def aioWebRequest(self):
         """Make asynchronous requests to the Telegram API"""
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             self.failed = None
+            asyncio.create_task(self.httpHandler())
             #
-            @loguru.logger.catch
-            async def httpHandler():
-                while not self.terminate.is_set():
-                    if not self.httpRoutines:
-                        await asyncio.sleep(0)
-                        continue
-                    #
-                    for item in self.httpRoutines:
-                        if self.terminate.is_set():
-                            return
-                        #
-                        incoming, outgoing = item
-                        resp, payload = incoming
-                        _, _, callback = outgoing
-                        endpoint = link.split('/')[-1]
-                        #
-                        if resp.ok:
-                            if endpoint in self.failing_endpoints:
-                                self.failing_endpoints.remove(endpoint)
-                            self.httpRoutines.remove(item)
-                            #
-                            if payload and callback:
-                                self.toThread(callback, payload)
-                                # if it was a getMe request, wait for it to finish
-                                if self.locks['getMe'].locked():
-                                    while not self.terminate.is_set():
-                                        if self.locks['getMe'].acquire(timeout=3):
-                                            self.logger.debug('waiting for getMe')
-                                            break
-                            elif payload:
-                                if self.config.get('echo-responses'):
-                                    self.logger.debug(payload)
-                            continue
-                        elif resp.status == 401:
-                            self.logger.critical("Invalid token. Closing...")
-                            self.shutdown()
-                        elif endpoint not in self.failing_endpoints:
-                            if payload:
-                                self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {endpoint} : {payload}")
-                            else:
-                                self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {outgoing}")
-                        # ignore repeated output
-                        self.failing_endpoints.append(endpoint)
-                        continue
-                    # clear handled routines
-                    self.httpRoutines.clear()
-            #
-            # start httpHandler
-            asyncio.create_task(httpHandler())
             while not self.terminate.is_set():
                 with self.get_request() as request:
                     if not request:
-                        ## no webhook? convert to getJob task
                         if not self.webhook:
                             params = {
                                 'params': {
@@ -434,9 +442,10 @@ class Autogram:
                                 }
                             }
                             url = f'{self.base_url}/getUpdates'
-                            request = (url,params,self.updateRouter)
-                        else:
-                            continue
+                            request = (url, params, self.updateRouter)
+                            self.httpRequests.put(request)
+                        continue
+                    #
                     link, kw, _ = request
                     kw = kw or dict()
                     defaults = {
@@ -460,10 +469,11 @@ class Autogram:
                             data = None
                             if resp.ok:
                                 data = await resp.json()
-                                self.logger.debug(f'GET [ok] /{link.split("/")[-1]}')
+                                self.logger.debug(f'[ok] GET /{link.split("/")[-1]}')
                             else:
-                                self.logger.debug(f'GET [err] /{link.split("/")[-1]} : {kw}')
+                                self.logger.debug(f'[err] GET /{link.split("/")[-1]} : {kw}')
                             self.httpRoutines.append(((resp, data), request))
+                            await asyncio.sleep(0)
                     except KeyboardInterrupt:
                         self.terminate.set()
                     except aiohttp.ClientConnectorError as e:
@@ -531,7 +541,6 @@ class Autogram:
     #***** start API calls *****#
     def getMe(self, me: Dict):
         """receive and parse getMe request."""
-        self.logger.info('*** connected... ***')
         for k,v in me.items():
             setattr(self, k, v)
         # allow aioWebRequest to continue
@@ -605,7 +614,8 @@ class Autogram:
     @loguru.logger.catch()
     def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs):
         url = f'{self.base_url}/editMessageText'
-        self.httpRequests.put((url,{
+        self.logger.critical(kwargs)
+        self.httpRequests.put((url, {
             'params': {
                 'text':text,
                 'chat_id': chat_id,

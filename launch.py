@@ -14,13 +14,9 @@ def startCommand(msg: Message):
     msg.sendText(
         f"*Defined Commands*\n```python\n{msg.getCommands()}```",
         parse_mode='MarkdownV2',
-        reply_markup = msg.autogram.getInlineKeyboardMarkup(
-            [
+        reply_markup = msg.autogram.getInlineKeyboardMarkup([
                 [{'text': 'Confirm', 'callback_data': 'confirmed'}]
-            ],
-            params = {
-                'one_time_keyboard': True
-            }
+            ]
         )
     )
 
