@@ -382,7 +382,7 @@ class Autogram:
     async def httpHandler(self):
         while not self.terminate.is_set():
             if not self.httpRoutines:
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
                 continue
             #
             for item in self.httpRoutines:
@@ -436,6 +436,7 @@ class Autogram:
                             url = f'{self.base_url}/getUpdates'
                             request = (url, params, self.updateRouter)
                             self.httpRequests.put(request)
+                        await asyncio.sleep(0)
                         continue
                     #
                     link, kw, _ = request
@@ -633,6 +634,9 @@ class Autogram:
 
     @loguru.logger.catch()
     def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}):
+        if msg_id in self.deleted_:
+            return False
+        #
         url = f'{self.base_url}/editMessageReplyMarkup'
         self.httpRequests.put((url,{
             'params': {
@@ -641,6 +645,7 @@ class Autogram:
                 'reply_markup': markup
             }|params
         }, None))
+        return True
 
     @loguru.logger.catch()
     def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int):
