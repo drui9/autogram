@@ -76,6 +76,7 @@ class Autogram:
         #
         loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
         self.logger = loguru.logger
+        self.getMe()
         return
 
     def mediaQuality(self):
@@ -127,7 +128,7 @@ class Autogram:
             if not self.terminate.is_set():
                 self.webhook = f"{self.public_ip}/{hookPath}"
                 self.logger.debug(f'Webhook: {self.webhook}')
-        # wrap and start main_loop
+        # wrap and start
         def launch():
             if self.terminate.is_set():
                 return
@@ -152,7 +153,6 @@ class Autogram:
     async def main_loop(self):
         """Main control loop"""
         processor = asyncio.create_task(self.aioWebRequest())
-        self.httpRequests.put((f'{self.base_url}/getMe',None,self.getMe))
         if self.webhook:
             url = f'{self.base_url}/setWebhook'
             self.httpRequests.put((url,{
@@ -167,7 +167,6 @@ class Autogram:
             self.deleteWebhook()
             self.getWebhookInfo(check_webhook)
         #
-        await asyncio.sleep(0)    # allow getMe to run
         await processor
         return
 
@@ -343,7 +342,7 @@ class Autogram:
             self.guard['pending'].put((priority, (tsk_id, task, callback, errHandler)))
             return task
         except RuntimeError:
-            self.terminate.set()
+            self.shutdown()
         return
 
     @contextmanager
@@ -365,7 +364,7 @@ class Autogram:
                         yield None
                     except Exception as e:
                         self.logger.exception(e)
-                        self.terminate.set()
+                        self.shutdown()
                         yield None
                 else:
                     yield self.httpRequests.get(block=False)
@@ -466,7 +465,7 @@ class Autogram:
                             self.httpRoutines.append(((resp, data), request))
                             await asyncio.sleep(0)
                     except KeyboardInterrupt:
-                        self.terminate.set()
+                        self.shutdown()
                     except aiohttp.ClientConnectorError as e:
                         error_detected = e
                     except aiohttp.ClientOSError as e:
@@ -477,7 +476,7 @@ class Autogram:
                         error_detected = e
                     except Exception as e:
                         error_detected = e
-                        self.terminate.set()
+                        self.shutdown()
                         self.logger.exception(e)
                     finally:
                         if error_detected:
@@ -498,10 +497,12 @@ class Autogram:
             #
             if res.ok:
                 return True, json.loads(res.text)['result']
+        except requests.exceptions.ConnectionError:
+            self.logger.critical('Connection Error')
+            self.shutdown()
         except Exception as e:
             self.logger.exception(e)
-        finally:
-            return False, res, url
+        return False, (url, res)
 
     def shutdown(self, callback :Callable|None = None):
         """callback: your exit function that takes `msg : str`"""
@@ -525,7 +526,6 @@ class Autogram:
             self.locks['session'].acquire()
         # terminate and wait for threadGuard
         self.logger.info('Autogram::terminating...')
-        self.terminate.set()
         if self.guard['lock'].locked():
             self.guard['thread'].join()
         #
@@ -533,10 +533,16 @@ class Autogram:
         return
 
     #***** start API calls *****#
-    def getMe(self, me: Dict):
-        """receive and parse getMe request."""
-        for k,v in me.items():
-            setattr(self, k, v)
+    def getMe(self):
+        """Authenticate bot"""
+        url = f'{self.base_url}/getMe'
+        ok, res = self.webRequest(url)
+        if not ok:
+            self.logger.critical("getMe() failed!")
+            self.shutdown()
+        else:
+            for k,v in res.items():
+                setattr(self, k, v)
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):
@@ -579,7 +585,17 @@ class Autogram:
         callback = None
         if 'callback' in kwargs.keys():
             callback = kwargs.pop('callback')
+        #
         url = f'{self.base_url}/sendMessage'
+        if kwargs.get('urgent'):
+            kwargs.pop('urgent')
+            params = {
+                'params': {
+                    'chat_id': chat_id,
+                    'text': text,
+                } | kwargs
+            }
+            return self.webRequest(url, **params)
         self.httpRequests.put((url,{
             'params': {
                 'chat_id': chat_id,
