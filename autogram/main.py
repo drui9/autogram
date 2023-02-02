@@ -602,6 +602,7 @@ class Autogram:
                 'text': text,
             } | kwargs
         } , callback))
+        return False, (url, "I do not return a value!")
 
     @loguru.logger.catch()
     def deleteMessage(self, chat_id: int, msg_id: int):
