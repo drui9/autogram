@@ -33,6 +33,7 @@ class Autogram:
     def _initialize_(self):
         self.webhook = None
         self.host = '0.0.0.0'
+        self.edited_ = set()
         self.deleted_ = set()
         self.public_ip = None
         self.update_offset = 0
@@ -60,7 +61,7 @@ class Autogram:
         self.locks = {
             'session': threading.Lock(),
         }
-        # 
+        #
         logger_format = (
             "<green>{time:DD/MM/YYYY HH:mm:ss}</green> | "
             "<level>{level: <8}</level>|"
@@ -98,10 +99,10 @@ class Autogram:
                 self.updateRouter(request.json)
                 response.content_type = 'application/json'
                 return json.dumps({'ok': True})
-            # 
+            #
             def runServer(server: Any):
                 run(server=server, quiet=True)
-            # 
+            #
             server = MyServer(host=self.host,port=self.port)
             serv_thread = threading.Thread(target=runServer, args=(server,))
             serv_thread.name = 'Autogram::Bottle'
@@ -211,7 +212,7 @@ class Autogram:
                 parser = chatMember
             elif payload:= update.get(chatJoinRequest.name):
                 parser = chatJoinRequest
-            # 
+            #
             if not parser:
                 return
             # todo: implement all update types then allow through
@@ -222,7 +223,7 @@ class Autogram:
             #
             parser.autogram = self
             self.toThread(parser,payload)
-        # 
+        #
         if type(res) == list:
             for update in res:
                 if update['update_id'] >= self.update_offset:
@@ -627,6 +628,10 @@ class Autogram:
     def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs):
         if msg_id in self.deleted_:
             return False
+        _hash = hash((chat_id, msg_id, text))
+        if _hash in self.edited_:
+            return True
+        self.edited_.add(_hash)
         #
         url = f'{self.base_url}/editMessageText'
         self.httpRequests.put((url, {
