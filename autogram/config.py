@@ -31,11 +31,8 @@ def load_config(config_file : str, config_path : str):
         print(f"Please edit [{config_file}]")
         sys.exit(1)
     config = {'config-file': config_file}
-    try:
-        with open(config_file, 'r') as conf:
-            config |= json.load(conf)
-    except json.decoder.JSONDecodeError:
-        return None
+    with open(config_file, 'r') as conf:
+        config |= json.load(conf)
     return config
 
 @logger.catch
