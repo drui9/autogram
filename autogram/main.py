@@ -457,22 +457,19 @@ class Autogram:
                     #
                     error_detected = None
                     try:
-                        with session.get(link, **kw, timeout=self.timeout) as resp:
+                        with session.get(link, **kw, timeout=None) as resp:
                             data = resp.json() or resp.content
                             self.logger.debug(f'[{resp.status_code}] GET /{link.split("/")[-1]}')
                             self.httpRoutines.append(((resp, data), request))
                             await asyncio.sleep(0)
                     except KeyboardInterrupt:
                         self.shutdown()
-                    except asyncio.TimeoutError as e:
-                        error_detected = e
                     except RuntimeError as e:
                         error_detected = e
                     except Exception as e:
                         error_detected = e
                         self.shutdown()
                         self.logger.exception(e)
-                        self.logger.critical(type(e))
                     finally:
                         if error_detected:
                             self.failed = request
@@ -487,9 +484,9 @@ class Autogram:
         try:
             with requests.session() as session:
                 if files:
-                    res = session.get(url,params=params,files=files)
+                    res = session.get(url,params=params,files=files, timeout=self.timeout)
                 else:
-                    res = session.get(url,params=params)
+                    res = session.get(url,params=params, timeout=self.timeout)
             #
             if res.ok:
                 return True, json.loads(res.text)['result']
