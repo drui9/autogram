@@ -3,14 +3,12 @@ import json
 import time
 import loguru
 import asyncio
-import aiohttp
 import requests
 import threading
-from typing import Callable
-from typing import Dict, Any
 from queue import Queue, Empty
 from contextlib import contextmanager
 from pyngrok import ngrok, conf as ngrokconf
+from typing import Dict, Any, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor
 #
 from autogram import *
@@ -42,11 +40,12 @@ class Autogram:
         self.httpRoutines = list()
         self.httpRequests = Queue()
         self.failing_endpoints = list()
+        self.session = requests.session()
         self.terminate = threading.Event()
         self.port = self.config['tcp-port']
         self.executor = ThreadPoolExecutor()
+        self.timeout = self.config['tcp-timeout'] or 10
         self.base_url = f"{Autogram.api_url}bot{self.token}"
-        self.timeout = aiohttp.ClientTimeout(self.config['tcp-timeout'])
         #
         self.guard = {
             'lock': threading.Lock(),
@@ -403,14 +402,14 @@ class Autogram:
                     elif self.config.get('echo-responses'):
                             self.logger.debug(payload)
                     continue
-                elif resp.status == 401:
+                elif resp.status_code == 401:
                     self.logger.critical("Invalid token. Closing...")
                     self.shutdown()
                 elif endpoint not in self.failing_endpoints:
                     if payload:
-                        self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {endpoint} : {payload}")
+                        self.logger.critical(f"[{endpoint}] HTTP{resp.status_code} : {endpoint} : {payload}")
                     else:
-                        self.logger.critical(f"[{endpoint}] HTTP{resp.status} : {outgoing}")
+                        self.logger.critical(f"[{endpoint}] HTTP{resp.status_code} : {outgoing}")
                 # ignore repeated output
                 self.failing_endpoints.append(endpoint)
                 continue
@@ -420,7 +419,7 @@ class Autogram:
     @loguru.logger.catch()
     async def aioWebRequest(self):
         """Make asynchronous requests to the Telegram API"""
-        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+        with requests.session() as session:
             self.failed = None
             asyncio.create_task(self.httpHandler())
             #
@@ -445,7 +444,7 @@ class Autogram:
                         'params': {
                             "limit": 81,
                             "offset": self.update_offset,
-                            "timeout": self.timeout.total,
+                            "timeout": self.timeout,
                         }
                     }
                     if not kw.get('params'):
@@ -458,21 +457,13 @@ class Autogram:
                     #
                     error_detected = None
                     try:
-                        async with session.get(link,**kw) as resp:
-                            data = None
-                            if resp.ok:
-                                data = await resp.json()
-                            self.logger.debug(f'[{resp.status}] GET /{link.split("/")[-1]}')
+                        with session.get(link, **kw, timeout=None) as resp:
+                            data = resp.json() or resp.content
+                            self.logger.debug(f'[{resp.status_code}] GET /{link.split("/")[-1]}')
                             self.httpRoutines.append(((resp, data), request))
                             await asyncio.sleep(0)
                     except KeyboardInterrupt:
                         self.shutdown()
-                    except aiohttp.ClientConnectorError as e:
-                        error_detected = e
-                    except aiohttp.ClientOSError as e:
-                        error_detected = e
-                    except asyncio.TimeoutError as e:
-                        error_detected = e
                     except RuntimeError as e:
                         error_detected = e
                     except Exception as e:
@@ -486,15 +477,16 @@ class Autogram:
                 await asyncio.sleep(0)
 
     @loguru.logger.catch()
-    def webRequest(self, url: str, params={}, files=None):
+    def webRequest(self, url: str, params={}, files=None) -> Tuple[Any,Any]:
         res = None
         params = params or {}
         # send request
         try:
-            if files:
-                res = requests.get(url,params=params,files=files)
-            else:
-                res = requests.get(url,params=params)
+            with requests.session() as session:
+                if files:
+                    res = session.get(url,params=params,files=files, timeout=self.timeout)
+                else:
+                    res = session.get(url,params=params, timeout=self.timeout)
             #
             if res.ok:
                 return True, json.loads(res.text)['result']
@@ -503,7 +495,7 @@ class Autogram:
             self.shutdown()
         except Exception as e:
             self.logger.exception(e)
-        return False, (url, res)
+        return False, res
 
     def shutdown(self, callback :Callable|None = None):
         """callback: your exit function that takes `msg : str`"""
@@ -762,8 +754,7 @@ class Autogram:
     @loguru.logger.catch()
     def parseFilters(self, filters: dict|None = None):
         filters = filters or {}
-        keys = list(filters.keys())
-        return json.dumps(keys)
+        return json.dumps(filters.keys())
 
     @loguru.logger.catch()
     def removeKeyboard(self, params: dict|None = None):
