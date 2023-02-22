@@ -35,18 +35,14 @@ class Message(UpdateBase):
 
         # parse entities
         endpoint = 'user-endpoint'
-        if entities := update.get('entities'):
+        entities = update.get('entities')
+        if entities and 'bot_command' in entities:
             text = None
             endpoint = 'command-endpoint'
             entities = update.pop('entities')
             #
-            for entity in entities:
-                typ = entity.get('type')
-                if typ != 'bot_command':
-                    return
-                if text := self.attachments.get('text'):
-                    setattr(self, 'text', text)
-                    break
+            if text := self.attachments.get('text'):
+                setattr(self, 'text', text)
             #
             if not text:
                 return
