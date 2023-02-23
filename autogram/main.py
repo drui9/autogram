@@ -492,6 +492,8 @@ class Autogram:
                 return True, json.loads(res.text)['result']
         except requests.exceptions.ConnectionError:
             self.logger.critical('Connection Error. Aborting.')
+        except:
+            pass
         return False, res
 
     def shutdown(self, callback :Callable|None = None):
