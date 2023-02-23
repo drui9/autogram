@@ -490,7 +490,7 @@ class Autogram:
             #
             if res.ok:
                 return True, json.loads(res.text)['result']
-            self.logger.critical(res)
+            self.logger.critical(f"{url.split('/')[-1]} {res.status_code}: {res.content}")
         except requests.exceptions.ConnectionError:
             self.logger.critical('Connection Error. Aborting.')
         except Exception as e:
@@ -692,19 +692,21 @@ class Autogram:
             'chat_id':chat_id,
             'caption': caption,
         })
-        self.sendChatAction(chat_id,chat_actions.photo)
+        self.sendChatAction(chat_id, chat_actions.photo)
         return self.webRequest(url,params=params,files={'photo':photo_bytes})
 
     @loguru.logger.catch()
     def sendAudio(self,chat_id: int,audio :bytes, caption: str|None = None, params: dict|None = None):
         params = params or {}
         url = f'{self.base_url}/sendAudio'
-        params.update({
+        params |= {
             'chat_id':chat_id,
             'caption': caption
-        })
-        self.sendChatAction(chat_id,chat_actions.audio)
-        return self.webRequest(url,params,files={'audio':audio})
+        }
+        if not audio:
+            raise RuntimeError('No audio bytes provided!')
+        self.sendChatAction(chat_id, chat_actions.audio)
+        return self.webRequest(url,params=params,files={'audio':audio})
 
     @loguru.logger.catch()
     def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None):
@@ -714,7 +716,7 @@ class Autogram:
             'chat_id':chat_id,
             'caption':caption
         })
-        self.sendChatAction(chat_id,chat_actions.document)
+        self.sendChatAction(chat_id, chat_actions.document)
         return self.webRequest(url,params,files={'document':document_bytes})
 
     @loguru.logger.catch()
@@ -725,7 +727,7 @@ class Autogram:
             'chat_id':chat_id,
             'caption':caption
         })
-        self.sendChatAction(chat_id,chat_actions.video)
+        self.sendChatAction(chat_id, chat_actions.video)
         return self.webRequest(url,params,files={'video':video_bytes})
 
     @loguru.logger.catch()
