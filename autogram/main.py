@@ -486,14 +486,16 @@ class Autogram:
                 if files:
                     res = session.get(url,params=params,files=files, timeout=self.timeout)
                 else:
-                    res = session.get(url,params=params, timeout=self.timeout)
+                    res = session.get(url, params =params, timeout =self.timeout)
             #
             if res.ok:
                 return True, json.loads(res.text)['result']
+            self.logger.critical(res)
         except requests.exceptions.ConnectionError:
             self.logger.critical('Connection Error. Aborting.')
-        except:
-            pass
+        except Exception as e:
+            if not res:
+                res = e
         return False, res
 
     def shutdown(self, callback :Callable|None = None):
@@ -694,7 +696,7 @@ class Autogram:
         return self.webRequest(url,params=params,files={'photo':photo_bytes})
 
     @loguru.logger.catch()
-    def sendAudio(self,chat_id: int,audio_bytes: bytes, caption: str|None = None, params: dict|None = None):
+    def sendAudio(self,chat_id: int,audio :bytes, caption: str|None = None, params: dict|None = None):
         params = params or {}
         url = f'{self.base_url}/sendAudio'
         params.update({
@@ -702,7 +704,7 @@ class Autogram:
             'caption': caption
         })
         self.sendChatAction(chat_id,chat_actions.audio)
-        return self.webRequest(url,params,files={'audio':audio_bytes})
+        return self.webRequest(url,params,files={'audio':audio})
 
     @loguru.logger.catch()
     def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None):
