@@ -10,3 +10,5 @@ clean:
 install:
 	@virtualenv venv;./venv/bin/pip install -r requirements.txt
 
+stable: clean build
+	git checkout releases;git merge main;git push;twine upload dist/*
