@@ -1,12 +1,12 @@
 import json
 import loguru
-from typing import Any, Callable
+from typing import Any
 
 class UpdateBase():
     logger = loguru.logger
     subscribed_updates = set()
     autogram : Any = None
-    handler : Callable = None
+    handler : Any = None
     text: str = ''
 
     @classmethod

@@ -12,4 +12,3 @@ class pollAnswer(UpdateBase):
     def addHandler(cls, handler: Callable):
         cls.handler = handler
         cls.subscribed_updates.add(cls.name)
-

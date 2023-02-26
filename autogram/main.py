@@ -61,23 +61,6 @@ class Autogram:
             'session': threading.Lock(),
         }
         #
-        logger_format = (
-            "<green>{time:DD/MM/YYYY HH:mm:ss}</green> | "
-            "<level>{level: <8}</level>|"
-            "<cyan>{line}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan> | "
-            "<level>{message}</level>"
-        )
-        loguru.logger.remove()
-        #
-        lvl = 'DEBUG'
-        if env := self.config.get('env'):
-            if env == 1:
-                lvl = self.config.get('log-level') or 'DEBUG'
-        #
-        sink = sys.stderr
-        if logfile := self.config.get('logfile'):
-            sink = logfile
-        loguru.logger.add(sink, format=logger_format, level=lvl)
         self.logger = loguru.logger
         self.getMe()
         return

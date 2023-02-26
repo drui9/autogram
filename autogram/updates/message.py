@@ -1,4 +1,3 @@
-from re import T
 import loguru
 from . import UpdateBase
 from typing import Dict, Callable
