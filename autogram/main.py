@@ -74,7 +74,10 @@ class Autogram:
             if env == 1:
                 lvl = self.config.get('log-level') or 'DEBUG'
         #
-        loguru.logger.add(sys.stderr, format=logger_format, level=lvl)
+        sink = sys.stderr
+        if logfile := self.config.get('logfile'):
+            sink = logfile
+        loguru.logger.add(sink, format=logger_format, level=lvl)
         self.logger = loguru.logger
         self.getMe()
         return
@@ -492,7 +495,7 @@ class Autogram:
                 return True, json.loads(res.text)['result']
             self.logger.critical(f"{url.split('/')[-1]} {res.status_code}: {res.content}")
         except requests.exceptions.ConnectionError:
-            self.logger.critical('Connection Error. Aborting.')
+            res = 'Connection Error. Aborting.'
         except Exception as e:
             if not res:
                 res = e
