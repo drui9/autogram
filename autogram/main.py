@@ -7,11 +7,11 @@ import requests
 import threading
 from queue import Queue, Empty
 from contextlib import contextmanager
-from pyngrok import ngrok, conf as ngrokconf
 from typing import Dict, Any, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor
 #
 from autogram import *
+from autogram.ip import IP
 from autogram.webhook import MyServer
 from bottle import request, response, post, run
 
@@ -25,6 +25,7 @@ class Autogram:
             print('Missing bot token!')
             sys.exit(1)
         #
+        self.ip = None
         self.config = config
         self._initialize_()
 
@@ -75,8 +76,9 @@ class Autogram:
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if not self.token:
-            raise RuntimeError("Send online without token?!")
+        if self.terminate.is_set() or not self.token:
+            raise RuntimeError("Terminated.")
+        #
         if public_ip := self.config['tcp-ip']:
             hookPath = self.token.split(":")[-1].lower()
             @post(f'/{hookPath}')
@@ -95,20 +97,16 @@ class Autogram:
             serv_thread.start()
             # check public ip availability
             if public_ip == 'ngrok':
-                ngrok_config = ngrokconf.PyngrokConfig(
-                    ngrok_version='v3',
-                    ngrok_path= self.config.get('ngrok-path'),
-                    auth_token= self.config.get('ngrok-token'),
-                    config_path= self.config.get('ngrok-config-path')
-                )
-                ngrokconf.set_default(ngrok_config)
-                try:
-                    self.ngrok_tunnel = ngrok.connect()
-                    ngrok.get_ngrok_process().stop_monitor_thread()
-                    public_ip = self.ngrok_tunnel.public_url
-                except Exception as e:
-                    self.logger.critical(e)
+                auth_token= self.config.get('ngrok-token')
+                ip = IP(token=auth_token, httpPort=4004)
+                public_ip = str(ip)
+                self.ip = ip
+                # watch disconnect
+                def watch_ip(ip):
+                    ip.disconnect.wait()
+                    self.logger.critical('Ngrok disconnected. Shutting down.')
                     self.shutdown()
+                self.toThread(watch_ip, ip)
             #
             self.public_ip = public_ip
             if not self.terminate.is_set():
@@ -243,7 +241,7 @@ class Autogram:
             for key in self.worker_threads:
                 for task in self.worker_threads[key]:
                     #
-                    _ , tsk, cb, errh = task
+                    nm , tsk, cb, errh = task
                     if not tsk.done():
                         continue
                     # fetch results or exceptions
@@ -254,6 +252,7 @@ class Autogram:
                     except Exception as e:
                         if errh:
                             errh(e)
+                            self.logger.debug(f'Propagating error. [Task id]: {nm} [error]: {e}')
                         else:
                             self.logger.exception(e)
                     to_remove.append((key, task))
@@ -489,11 +488,8 @@ class Autogram:
         if self.locks['session'].locked() or self.terminate.is_set():
             return
         # block further updates
-        try:
-            ngrok.disconnect(self.public_ip)
-        except:
-            pass
-        #
+        if self.ip:
+            self.ip.terminate.set()
         # start termination
         self.terminate.set()
         if callback:

@@ -11,9 +11,7 @@ default_config = {
     'tcp-timeout': 10,
     'echo-responses': False,
     'media-quality': 'high',
-    'ngrok-path': None,
     'ngrok-token': None,
-    'ngrok-config-path': None,
     'telegram-token': None,
 }
 

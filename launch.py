@@ -7,7 +7,7 @@ def callBackHandler(cb :callbackQuery):
     cb.answerCallbackQuery(text='Updated')
     cb.delete()
 
-# bot commands        
+# bot commands
 @Message.onCommand('start')
 def startCommand(msg: Message):
     msg.delete()
@@ -52,4 +52,3 @@ def startBot(config: dict):
     bot = Autogram(config=config)
     bot_thread = bot.send_online()
     bot_thread.join()
-
