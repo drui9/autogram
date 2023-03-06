@@ -79,7 +79,7 @@ class Autogram:
         if not self.token:
             raise RuntimeError("No valid telegram token.")
         #
-        if public_ip := self.config['tcp-ip'] and not self.terminate.is_set():
+        if (public_ip := self.config['tcp-ip']) and not self.terminate.is_set():
             hookPath = self.token.split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
