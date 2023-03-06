@@ -34,7 +34,8 @@ def load_config(config_file : str, config_path : str):
 @logger.catch
 def save_config(config :Dict):
     """config-file must be in the dictionary"""
-    if conffile := config.get('config-file'):
+    if config.get('config-file'):
+        conffile = config.pop('config-file')
         with open(conffile, 'w') as conf:
             json.dump(config, conf, indent=3)
             conf.flush()
