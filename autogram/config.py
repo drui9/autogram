@@ -5,7 +5,6 @@ from loguru import logger
 from typing import Callable, Dict
 
 default_config = {
-    'env': 0, # {'dev': 0, 'production': 1}
     'tcp-port': 4004,
     'tcp-ip': 'ngrok',
     'tcp-timeout': 10,

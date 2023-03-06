@@ -76,10 +76,10 @@ class Autogram:
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if self.terminate.is_set() or not self.token:
-            raise RuntimeError("Terminated.")
+        if not self.token:
+            raise RuntimeError("No valid telegram token.")
         #
-        if public_ip := self.config['tcp-ip']:
+        if public_ip := self.config['tcp-ip'] and not self.terminate.is_set():
             hookPath = self.token.split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
