@@ -236,7 +236,7 @@ class Autogram:
                 self.worker_threads[priority].append(work)
                 workers += 1
             except Empty:
-                continue
+                pass
             #
             for key in self.worker_threads:
                 for task in self.worker_threads[key]:
@@ -252,7 +252,7 @@ class Autogram:
                     except Exception as e:
                         if errh:
                             errh(e)
-                            self.logger.debug(f'Propagating error. [Task id]: {nm} [error]: {e}')
+                            self.logger.debug(f'Error from: {nm}')
                         else:
                             self.logger.exception(e)
                     to_remove.append((key, task))
