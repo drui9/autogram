@@ -63,7 +63,6 @@ class Autogram:
         }
         #
         self.logger = loguru.logger
-        self.getMe()
         return
 
     def mediaQuality(self):
@@ -76,8 +75,8 @@ class Autogram:
     @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if not self.token:
-            raise RuntimeError("No valid telegram token.")
+        if not self.token or not self.getMe():
+            raise RuntimeError("Error connecting to telegram.")
         #
         if (public_ip := self.config['tcp-ip']) and not self.terminate.is_set():
             hookPath = self.token.split(":")[-1].lower()
@@ -515,10 +514,11 @@ class Autogram:
         ok, res = self.webRequest(url)
         if not ok:
             self.logger.critical("getMe() failed!")
-            self.shutdown()
+            return False
         else:
             for k,v in res.items():
                 setattr(self, k, v)
+        return True
 
     @loguru.logger.catch()
     def downloadFile(self, file_path: str):
