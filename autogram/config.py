@@ -8,6 +8,7 @@ default_config = {
     'tcp-port': 4004,
     'tcp-ip': 'ngrok',
     'tcp-timeout': 10,
+    'max-workers': 32,
     'echo-responses': False,
     'media-quality': 'high',
     'ngrok-token': None,

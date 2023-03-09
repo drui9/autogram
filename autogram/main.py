@@ -44,7 +44,7 @@ class Autogram:
         self.session = requests.session()
         self.terminate = threading.Event()
         self.port = self.config['tcp-port']
-        self.executor = ThreadPoolExecutor()
+        self.executor = ThreadPoolExecutor(max_workers=self.config['max-workers'])
         self.timeout = self.config['tcp-timeout'] or 10
         self.base_url = f"{Autogram.api_url}bot{self.token}"
         #
@@ -326,6 +326,8 @@ class Autogram:
         tsk_id = args[0].__name__
         try:
             task = self.executor.submit(*args)
+            if not task.running():
+                self.logger.debug(f'Call to {tsk_id} scheduled for execution.')
             self.guard['pending'].put((priority, (tsk_id, task, callback, errHandler)))
             return task
         except RuntimeError:
