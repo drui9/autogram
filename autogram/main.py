@@ -72,11 +72,14 @@ class Autogram:
             return 1
         return 0
 
-    @loguru.logger.catch
     def send_online(self) -> threading.Thread:
         """Get this bot online in a separate daemon thread."""
-        if not self.token or not self.getMe():
-            raise RuntimeError("Error connecting to telegram.")
+        try:
+            if not self.token:
+                raise RuntimeError("No telegram token provided!")
+            self.getMe()
+        except Exception as e:
+            raise RuntimeError(str(e))
         #
         if (public_ip := self.config['tcp-ip']) and not self.terminate.is_set():
             hookPath = self.token.split(":")[-1].lower()
@@ -513,7 +516,7 @@ class Autogram:
         url = f'{self.base_url}/getMe'
         ok, res = self.webRequest(url)
         if not ok:
-            self.logger.critical("getMe() failed!")
+            raise RuntimeError("getMe() failed!")
             return False
         else:
             for k,v in res.items():
