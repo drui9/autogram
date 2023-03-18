@@ -80,6 +80,7 @@ The basic idea is that you can have a running bot without handlers. To be able t
 
 ## 0x03 Currently implemented update types
 - Message
+- callbackQuery
 
 ## 0x04 Upcoming features
 - Add onNotification handlers
@@ -98,34 +99,19 @@ def customFunction(result):
 def customErrHandler(err):
     raise err
 
-toThread(func, args, callback=customFunction, errHandler=customErrHandler) # which returns the function result, or raises exception
-
-# Can also do without args
-toThread(func, priority='high') # default priority is `normal`
-
-# NB: Known priorities are high & normal
-# Do not supply a callback function if using .result(), as the callback will be called again during clean-up
-# High priority tasks are allowed to complete during bot.shutdown(). You can trigger them to shutdown using .shutdown(customFunction). customFunction should take a str, which is a report of the running threads, if any.
+toThread(func, args, callback=customFunction, errHandler=customErrHandler)
 ```
 
-
 ## ChangeLog
-- Added callbackQuery handler. The object contains a dictionary copy of the outgoing message
-- Added `ngrok-path` to config. Update to point to your installed version. if not found, it'll download.
-- Added `io-tasks, high-priority and common-tasks` priority groups to threadpool workers. Do:
-    ```python
-    bot.toThread(max, 1, 2, priority='high-priority')
-    bot.toThread(min, 1, 2, priority='common-tasks')
-    bot.toThread(floor, 2.5, priority='io-tasks')
-
-    """
-    max, min and floor are example functions, whose arguments are the numbers.
-    """
-    ```
-- Added a background ngrok server with pyngrok
+- Update to use ngrok version available in path.
+- Added support for callbackQueries.
 - Added onStart(*args) handler which can be used to start the bot.
 - Autogram has a reusable ThreadPoolExecutor using a `bot.toThread(*args)`
-- onStart calls load_config implicitly, and passes it to decorated function. Bot can be instantiated here.
+-
+
+## Utilities functions
+- `onStart ` calls load_config implicitly, and passes it to decorated function. Bot can be instantiated here.
+- `load_config` loads and checks config file for correctness.
 
 ## Deprecated features / can be done in higher level
 - Admin and deputy functionalities

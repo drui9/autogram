@@ -40,6 +40,7 @@ class Autogram:
         self.ngrok_tunnel = None
         self.httpRoutines = list()
         self.httpRequests = Queue()
+        self.worker_threads = list()
         self.failing_endpoints = list()
         self.session = requests.session()
         self.terminate = threading.Event()
@@ -54,10 +55,6 @@ class Autogram:
             'thread': None
         }
         #
-        self.worker_threads = {
-            'normal': list(),
-            'high': list(),
-        }
         self.locks = {
             'session': threading.Lock(),
         }
@@ -220,76 +217,45 @@ class Autogram:
 
     def popWorkers(self, workers: list):
         for item in workers:
-            key, task = item
-            self.worker_threads[key].remove(task)
-            continue
+            if item in self.worker_threads:
+                self.worker_threads.remove(item)
         return
 
     @loguru.logger.catch
     def threadGuard(self):
-        workers = 0
         to_remove = list()
         self.guard['lock'].acquire()
         while not self.terminate.is_set():
             try:
-                worker = self.guard['pending'].get(timeout=3)
-                priority, work = worker
-                #
-                self.worker_threads[priority].append(work)
-                workers += 1
+                work = self.guard['pending'].get(timeout=5)
+                self.worker_threads.append(work)
             except Empty:
                 pass
             #
-            for key in self.worker_threads:
-                for task in self.worker_threads[key]:
-                    #
-                    nm , tsk, cb, errh = task
-                    if not tsk.done():
-                        continue
-                    # fetch results or exceptions
-                    try:
-                        result = tsk.result()
-                        if cb:
-                            self.toThread(cb, result)
-                    except Exception as e:
-                        if errh:
-                            errh(e)
-                            self.logger.debug(f'Error from: {nm}')
-                        else:
-                            self.logger.exception(e)
-                    to_remove.append((key, task))
-                    workers -= 1
+            for task in self.worker_threads:
+                nm , tsk, errh = task
+                if not tsk.done():
+                    continue
+                # fetch results or exceptions
+                if error := tsk.exception():
+                    if errh:
+                        errh(e)
+                    else:
+                        self.logger.exception(e)
+                to_remove.append(task)
             #
             self.popWorkers(to_remove)
             to_remove.clear()
         # shutdown executor
-        if not workers:
-            self.guard['lock'].release()
-            return
-        elif self.worker_threads['high'] or self.worker_threads['normal']:
-            self.logger.debug("Terminating worker threads...")
-            #
-            for task in self.worker_threads['normal']:
-                tsk_id, tsk, cb, _ = task
-                if not tsk.done() and not tsk.running():
-                    if tsk.cancel():
-                        self.logger.debug(f"[{tsk_id}] canceled.")
-                    else:
-                        self.logger.debug(f"[{tsk_id}] rejected cancel request.")
-                elif done := tsk.done() and cb and not tsk.exception():
-                    self.logger.debug(f"[{tsk_id}] completed but was ignored on termination.")
-                elif done and (e := tsk.exception()):
-                    self.logger.exception(e)
-                continue
-            #
-            for worker in self.worker_threads['high']:
-                tsk_id, tsk, cb, _ = worker
+        if self.worker_threads:
+            self.logger.debug("[ThreadGuard] terminating threads...")
+            for task in self.worker_threads:
+                tsk_id, tsk, errh = task
                 if tsk.done():
-                    to_remove.append(('high',worker))
-                    # propagate result
-                    if cb and not tsk.exception():
-                        cb(tsk.result())
-                    elif e := tsk.exception():
+                    to_remove.append(task)
+                    if e := tsk.exception() and errh:
+                        errh(e)
+                    else:
                         self.logger.exception(e)
                         self.logger.debug(f"[{tsk_id}] finished with an error.")
                 elif not tsk.running():
@@ -298,16 +264,15 @@ class Autogram:
                     else:
                         self.logger.debug(f"[{tsk_id}] : Cancel failed!")
                 else:
-                    self.logger.debug(f"[{tsk_id}] : thread is busy!")
+                    self.logger.debug(f"[{tsk_id}] : thread busy!")
                 continue
             self.executor.shutdown(wait=False, cancel_futures=True)
-        #
-        self.logger.debug("Tasks terminated.")
+        self.logger.debug("[ThreadGuard] threads terminated.")
         self.guard['lock'].release()
         return
 
     @loguru.logger.catch()
-    def toThread(self, *args, callback :Callable|None = None, errHandler :Callable|None = None, priority :str|None = None):
+    def toThread(self, *args, callback :Callable|None = None, errHandler :Callable|None = None):
         if self.locks['session'].locked():
             self.logger.debug(f"[{args[0].__name__}] : Blocked execution")
             return
@@ -318,17 +283,13 @@ class Autogram:
             self.guard['thread'].start()
         # append worker to priority group
         result = False
-        if not priority or (result := (priority not in list(self.worker_threads.keys()))):
-            if result:
-                self.logger.debug(f"Undefined task priority: {priority}: {args}")
-            priority = 'normal'
         #
         tsk_id = args[0].__name__
         try:
             task = self.executor.submit(*args)
-            if not task.running():
-                self.logger.debug(f'Call to {tsk_id} scheduled for execution.')
-            self.guard['pending'].put((priority, (tsk_id, task, callback, errHandler)))
+            if callback:
+                task.add_done_callback(callback)
+            self.guard['pending'].put((tsk_id, task, errHandler))
             return task
         except RuntimeError:
             self.shutdown()
