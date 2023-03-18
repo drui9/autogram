@@ -239,7 +239,7 @@ class Autogram:
                 # fetch results or exceptions
                 if error := tsk.exception():
                     if errh:
-                        errh(e)
+                        errh(error)
                     else:
                         self.logger.exception(e)
                 to_remove.append(task)
