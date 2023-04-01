@@ -11,7 +11,6 @@ default_config = {
     'max-workers': 32,
     'echo-responses': False,
     'media-quality': 'high',
-    'ngrok-token': None,
     'telegram-token': None,
 }
 

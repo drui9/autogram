@@ -1,3 +1,4 @@
+import re
 import sys
 import json
 import time
@@ -11,7 +12,6 @@ from typing import Dict, Any, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor
 #
 from autogram import *
-from autogram.ip import IP
 from autogram.webhook import MyServer
 from bottle import request, response, post, run
 
@@ -20,6 +20,7 @@ class Autogram:
     api_url = 'https://api.telegram.org/'
 
     def __init__(self, config: Dict):
+        self.link_patt = re.compile('^(https?):\\/\\/[^\\s/$.?#].[^\\s]*$')
         self.token :str|None = config.get('telegram-token')
         if not self.token:
             print('Missing bot token!')
@@ -79,6 +80,9 @@ class Autogram:
             raise RuntimeError(str(e))
         #
         if (public_ip := self.config['tcp-ip']) and not self.terminate.is_set():
+            if not re.search(self.link_patt, public_ip):
+                raise RuntimeError('Unknown public url format!')
+            self.public_ip = public_ip
             hookPath = self.token.split(":")[-1].lower()
             @post(f'/{hookPath}')
             def hookHandler():
@@ -94,23 +98,9 @@ class Autogram:
             serv_thread.name = 'Autogram::Bottle'
             serv_thread.daemon = True
             serv_thread.start()
-            # check public ip availability
-            if public_ip == 'ngrok':
-                auth_token= self.config.get('ngrok-token')
-                ip = IP(token=auth_token, httpPort=4004)
-                public_ip = str(ip)
-                self.ip = ip
-                # watch disconnect
-                def watch_ip(ip):
-                    ip.disconnect.wait()
-                    self.logger.critical('Ngrok disconnected. Shutting down.')
-                    self.shutdown()
-                self.toThread(watch_ip, ip)
             #
-            self.public_ip = public_ip
             if not self.terminate.is_set():
                 self.webhook = f"{self.public_ip}/{hookPath}"
-                self.logger.debug(f'Webhook: {self.webhook}')
         # wrap and start
         def launch():
             if self.terminate.is_set():
