@@ -99,16 +99,61 @@ class Bot():
     return self.requests.get(url, params=params)
 
   def parseUpdate(self, update :dict):
+    """Parse received updates"""
     self.logger.info(update)
+    with open('updates-raw.json', 'a') as out:
+      out.write(f'{json.dumps(update)}\n')
+
+  def short_poll(self):
+    """Start fetching updates in seperate thread"""
+    def getter():
+      failed = False
+      offset = 0
+      while not self.terminate.is_set():
+        try:
+          data = {
+            'timeout': 3,
+            'params': {
+              'offset': offset,
+              'limit': 10,
+              'timeout': 1
+            }
+          }
+          res = self.getUpdates(**data)
+        except requests.exceptions.ReadTimeout as e:
+          self.logger.critical(str(e))
+          time.sleep(2)
+          continue
+        #
+        if not res.ok:
+          if not failed:
+            time.sleep(2)
+            failed = True
+          else:
+            self.terminate.set()
+        else:
+          updates = res.json()['result']
+          for update in updates:
+            offset = update['update_id'] + 1
+            self.parseUpdate(update)
+          self.logger.critical(f'offset: {offset}')
+          # rate-limit
+          poll_time = 2
+          time.sleep(poll_time)
+      return
+    poll = threading.Thread(target=getter)
+    poll.name = 'Autogram:short_polling'
+    poll.daemon = True
+    poll.start()
 
   def getMe(self) -> Response:
     """Fetch `bot` information"""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/getMe'
     return self.requests.get(url)
 
-  def getUpdates(self) -> Response:
+  def getUpdates(self, **kwargs) -> Response:
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/getUpdates'
-    return self.requests.get(url)
+    return self.requests.get(url, **kwargs)
 
   def downloadFile(self, file_path: str) -> Response:
     """Downloads a file with file_path got from getFile(...)"""

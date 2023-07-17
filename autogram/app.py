@@ -20,16 +20,20 @@ class Autogram(Bot):
     self.webhook_addr = self.config.get('AUTOGRAM_ENDPOINT') or os.getenv('AUTOGRAM_ENDPOINT')
     if self.webhook_addr:
       res = self.setWebhook(self.webhook_addr)
+      if not res.ok:
+        self.do_err(msg='/setWebhook failed!')
     else:
       res = self.deleteWebhook()
-    if not res.ok:
-      self.do_err(msg=(str(res.json()) or 'Initialization error'))
+      if not res.ok:
+        self.do_err('/deleteWebhook failed!')
+      else:
+        self.short_poll()
     return
 
   def start(self):
     try:
       self.prepare()
-      self.terminate.wait(timeout=3)
+      self.terminate.wait(timeout=10)
     except ConnectionError:
       self.terminate.set()
       self.logger.critical('Connection Error!')
@@ -51,7 +55,6 @@ class Autogram(Bot):
       res = self.deleteWebhook()
       if not res.ok:
         raise RuntimeError()
-      self.logger.info('Deleted webhook.')
     except Exception as e:
       self.logger.critical('/deleteWebhook failed!')
     finally:
