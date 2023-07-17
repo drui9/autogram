@@ -34,9 +34,11 @@ class Bot():
     self.logger = loguru.logger
     self.terminate = threading.Event()
     self.requests = requests.session()
-    self.webhook_addr = os.getenv('AUTOGRAM_ENDPOINT')
     self.config = config or self.do_err(msg='Please pass a config <object :Dict>!')
-    self.config["telegram-token"] = self.settings("telegram-token") or os.getenv('AUTOGRAM_TG_TOKEN')
+    if not self.config.get("telegram-token"):
+      self.config.update({
+          "telegram-token" : os.getenv('AUTOGRAM_TG_TOKEN') or self.do_err(msg='Missing bot token!')
+        })
 
   def do_err(self, err_type =RuntimeError, msg ='Error!'):
     """Clean terminate the program on errors."""
@@ -63,7 +65,11 @@ class Bot():
   def setWebhook(self, hook_addr : str):
     if not re.search('^(https?):\\/\\/[^\\s/$.?#].[^\\s]*$', hook_addr):
       raise RuntimeError('Invalid webhook url. format <https://...>')
-    #
+    # ensure hook_addr stays reachable
+    @get('/')
+    def ping():
+      return json.dumps({'ok': True})
+    # receive updates
     @post('/')
     def hookHandler():
       response.content_type = 'application/json'
