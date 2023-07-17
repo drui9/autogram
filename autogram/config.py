@@ -7,7 +7,6 @@ from typing import Callable, Dict
 default_config = {
   'lport': 4004,
   'media-quality': 'low',
-  'admin-username': None,
   'telegram-token': None
 }
 
@@ -20,7 +19,7 @@ def load_config(config_file : str, config_path : str):
   if not os.path.exists(configuration):
     with open(configuration, 'w') as conf:
       json.dump(default_config, conf, indent=3)
-    print(f"Please edit [{configuration}]")
+    logger.critical(f"Please edit [{configuration}]")
     sys.exit(0)
   config = {'config-file': configuration}
   with open(configuration, 'r') as conf:

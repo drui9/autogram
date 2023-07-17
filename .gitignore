@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 # config files
-autogram.json
+*.json
 
 # temp dir 
 Downloads/

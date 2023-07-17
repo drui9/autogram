@@ -17,7 +17,6 @@ class Autogram(Bot):
     res = self.getMe()
     if not res.ok:
       self.do_err(msg=str(res.json()))
-    self.logger.info(res.json())
     self.webhook_addr = self.config.get('AUTOGRAM_ENDPOINT') or os.getenv('AUTOGRAM_ENDPOINT')
     if self.webhook_addr:
       res = self.setWebhook(self.webhook_addr)
@@ -30,7 +29,7 @@ class Autogram(Bot):
   def start(self):
     try:
       self.prepare()
-      self.terminate.wait(timeout=10)
+      self.terminate.wait(timeout=3)
     except ConnectionError:
       self.terminate.set()
       self.logger.critical('Connection Error!')

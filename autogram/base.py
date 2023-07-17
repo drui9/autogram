@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from requests.models import Response
 from autogram.webserver import WebServer
 from bottle import request, response, post, run, get
-from autogram import chat_actions
+from autogram import *
 
 
 class Bot():
@@ -36,6 +36,7 @@ class Bot():
     """Get or set value of key in config"""
     if val:
        self.config.update({key: val})
+       save_config(self.config)
        return val
     elif not (ret := self.config.get(key)):
       self.do_err(msg=f'Missing key in config: {key}')
