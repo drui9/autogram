@@ -1,34 +1,21 @@
 import os
 import re
+import time
 import json
 import loguru
 import threading
 import requests
 from typing import Any
+from sqlalchemy import create_engine
 from requests.models import Response
-from collections import namedtuple
 from autogram.webserver import WebServer
 from bottle import request, response, post, run, get
-#
-ChatActionTypes = namedtuple(
-  'ChatActions', [
-    'typing',
-    'photo',
-    'video',
-    'audio',
-    'document'
-    ])
-#
-chat_actions = ChatActionTypes(
-    'typing',
-    'upload_photo',
-    'upload_video',
-    'upload_voice',
-    'upload_document'
-  )
+from autogram import chat_actions
+
 
 class Bot():
   endpoint = 'https://api.telegram.org/'
+  engine = create_engine('sqlite:///:memory:', echo=False)
 
   def __init__(self, config :dict) -> None:
     self.logger = loguru.logger
@@ -69,6 +56,25 @@ class Bot():
     @get('/')
     def ping():
       return json.dumps({'ok': True})
+    # keep-alive service
+    def keep_alive():
+      self.logger.info('Keep-alive started.')
+      try:
+        while not self.terminate.is_set():
+          time.sleep(10)
+          res = self.requests.get(hook_addr)
+          if not res.ok:
+            raise RuntimeError('Webhook address unreachable!')
+      except Exception as e:
+        self.logger.exception(e)
+      finally:
+        self.terminate.set()
+        self.logger.critical('Keep-alive service terminated.')
+    # start keep-alive
+    alive_guard = threading.Thread(target=keep_alive)
+    alive_guard.name = 'Autogram:Keep-alive'
+    alive_guard.daemon = True
+    alive_guard.start()
     # receive updates
     @post('/')
     def hookHandler():
@@ -92,7 +98,7 @@ class Bot():
     return self.requests.get(url, params=params)
 
   def parseUpdate(self, update :dict):
-    print(update)
+    self.logger.info(update)
 
   def getMe(self) -> Response:
     """Fetch `bot` information"""
