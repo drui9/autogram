@@ -1,15 +1,21 @@
 import os
-import loguru
+import time
+import queue
+import threading
 from autogram.base import Bot
-from autogram.models import *
 from requests.exceptions import ConnectionError
 
 
 class Autogram(Bot):
   def __init__(self, config) -> None:
-    """Initialize super, then database metadata respectively"""
+    """Initialize parent object"""
+    self.update_handler = None
     super().__init__(config)
     return
+
+  def addHandler(self, function):
+    self.update_handler = function
+    return function
 
   def prepare(self):
     """Confirm auth through getMe(), then check update methods"""
@@ -33,7 +39,14 @@ class Autogram(Bot):
     """Launch the bot"""
     try:
       self.prepare()
-      self.terminate.wait(timeout=10)
+      while not self.terminate.is_set():
+        try:
+          if not self.update_handler:
+            time.sleep(5)
+            continue
+          self.update_handler(self.updates.get())
+        except queue.Empty:
+          continue
     except ConnectionError:
       self.terminate.set()
       self.logger.critical('Connection Error!')
