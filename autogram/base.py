@@ -6,19 +6,20 @@ import loguru
 import threading
 import requests
 from typing import Any
+from queue import Queue
 from requests.models import Response
 from autogram.webserver import WebServer
 from bottle import request, response, post, run, get
 from autogram.config import save_config, load_config
-from autogram.models import BotBase
 
 
-class Bot(BotBase):
+class Bot():
   endpoint = 'https://api.telegram.org/'
 
   def __init__(self, config :dict) -> None:
     """Initialize parent database object"""
     super().__init__()
+    self.updates = Queue()
     self.logger = loguru.logger
     self.terminate = threading.Event()
     self.requests = requests.session()
@@ -81,7 +82,7 @@ class Bot(BotBase):
     @post('/')
     def hookHandler():
       response.content_type = 'application/json'
-      self.parseUpdate(request.json)
+      self.updates.put(request.json)
       return json.dumps({'ok': True})
     #
     def runServer(server: Any):
@@ -98,12 +99,6 @@ class Bot(BotBase):
       'url': hook_addr
     }
     return self.requests.get(url, params=params)
-
-  def parseUpdate(self, update :dict):
-    """Parse received updates"""
-    self.logger.info(update)
-    with open('updates-raw.json', 'a') as out:
-      out.write(f'{json.dumps(update)}\n')
 
   def short_poll(self):
     """Start fetching updates in seperate thread"""
@@ -136,7 +131,7 @@ class Bot(BotBase):
           updates = res.json()['result']
           for update in updates:
             offset = update['update_id'] + 1
-            self.parseUpdate(update)
+            self.updates.put(update)
           self.logger.critical(f'offset: {offset}')
           # rate-limit
           poll_time = 2
@@ -346,4 +341,3 @@ class Bot(BotBase):
       'remove_keyboard': True,
     }|params
     return json.dumps(markup)
-

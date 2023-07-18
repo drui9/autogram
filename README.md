@@ -2,6 +2,26 @@
     <img src="https://raw.githubusercontent.com/sp3rtah/autogram/main/autogram.png" align="middle" alt="Autogram">
 <p>
 
+## Installation :: Python3
+`pip install autogram`
+
+## Sample usage
+```python
+from autogram import Autogram
+from autogram import Start
+from loguru import logger
+
+def handle_update(update):
+    logger.info(update)
+
+@Start()
+def main(config):
+    bot = Autogram(config)
+    bot.settings('AUTOGRAM_ENDPOINT', 'https://3c23-105-161-113-44.ngrok.io') # ngrok addr webhook injection
+    bot.addHandler(handle_update)
+    bot.start()
+```
+
 ## `0x00 An efficient asyncronous Telegram bot API wrapper!`
 Autogram is a telegram BOT API wrapper with focus on simplicity and performance.
 
@@ -20,6 +40,7 @@ You add functionality to Autogram bot py implementing and adding callback functi
 - Escape special characters internally.
 
 ### `footnotes`
+- Running `pip install autogram` installs sqlalchemy too incase you need to add database storage functionality.
 - If the `telegram token` is missing in `config file`, or is INVALID, the bot will terminate.
 - `Polling` can be implemented by the user, while feeding data to the bot through `bot.parseUpdate(...)`
 - Autogram searches for bot `token` in the specified `config file` before resolving to env variable value.
