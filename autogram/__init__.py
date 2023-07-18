@@ -17,11 +17,9 @@ chat_actions = ChatActionTypes(
     'upload_document'
   )
 #
-from autogram.config import Start, save_config, load_config
+from autogram.config import Start
 from autogram.app import Autogram
 
-
 __all__ = [
-  'Start', 'save_config', 'load_config',
-  'Autogram', 'chat_actions'
+  'Start', 'Autogram', 'chat_actions'
 ]

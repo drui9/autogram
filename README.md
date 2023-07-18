@@ -26,3 +26,15 @@ You add functionality to Autogram bot py implementing and adding callback functi
 - Don't run multiple bots with the same `TOKEN` as this will cause update problems
 - Sending unescaped special characters when using MarkdownV2 will return HTTP400
 - Have `fun` with whatever you're building `;)`
+
+## `unlock sublime text 4 license`
+This guide also works for linux. The file that needs to be replaced is located in: /opt/sublime_text/sublime_text in case of debian based systems. (Ubuntu, Debian etc.)
+
+Here are the instructions that I followed:
+
+1, Go to https://hexed.it/
+2. Click Open File in the top left corner and select /opt/sublime_text/sublime_text
+3. Press CTRL + F or on the Search for bar in the left panel and look for: 80 78 05 00 0f 94 C1
+4. Now in the editor, click on the first byte (80) and start replacing each byte by: C6 40 05 01 48 85 C9
+5. Finally, in the top left corner again, click on Export Button. This will download the file in your Downloads Folder.
+6. Execute sudo cp ~/Downloads/sublime_text /opt/sublime_text/sublime_text to replace the original file.

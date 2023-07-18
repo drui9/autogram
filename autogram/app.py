@@ -9,7 +9,6 @@ class Autogram(Bot):
   def __init__(self, config) -> None:
     """Initialize super, then database metadata respectively"""
     super().__init__(config)
-    Base.metadata.create_all(bind=self.engine)
     return
 
   def prepare(self):
@@ -31,6 +30,7 @@ class Autogram(Bot):
     return
 
   def start(self):
+    """Launch the bot"""
     try:
       self.prepare()
       self.terminate.wait(timeout=10)
@@ -41,6 +41,7 @@ class Autogram(Bot):
       self.shutdown()
 
   def shutdown(self):
+    """Gracefully terminate the bot"""
     if self.terminate.is_set():
       try:
         res = self.getWebhookInfo()

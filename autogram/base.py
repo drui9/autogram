@@ -6,18 +6,19 @@ import loguru
 import threading
 import requests
 from typing import Any
-from sqlalchemy import create_engine
 from requests.models import Response
 from autogram.webserver import WebServer
 from bottle import request, response, post, run, get
-from autogram import *
+from autogram.config import save_config, load_config
+from autogram.models import BotBase
 
 
-class Bot():
+class Bot(BotBase):
   endpoint = 'https://api.telegram.org/'
-  engine = create_engine('sqlite:///:memory:', echo=False)
 
   def __init__(self, config :dict) -> None:
+    """Initialize parent database object"""
+    super().__init__()
     self.logger = loguru.logger
     self.terminate = threading.Event()
     self.requests = requests.session()
