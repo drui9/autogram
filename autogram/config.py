@@ -33,7 +33,7 @@ def save_config(config :Dict):
     with open(conffile, 'w') as conf:
       json.dump(config, conf, indent=2)
       conf.flush()
-  except:
+  except Exception:
     conffile = conffile or None
     if conffile:
       return config | {'config-file': conffile}

@@ -1,7 +1,6 @@
 import os
 import time
 import queue
-import threading
 from autogram.base import Bot
 from requests.exceptions import ConnectionError
 
@@ -22,7 +21,7 @@ class Autogram(Bot):
     res = self.getMe()
     if not res.ok:
       self.do_err(msg=str(res.json()))
-    self.webhook_addr = self.config.get('AUTOGRAM_ENDPOINT') or os.getenv('AUTOGRAM_ENDPOINT')
+    self.webhook_addr = self.config.get('AUTOGRAM_ENDPOINT') or os.getenv('AUTOGRAM_ENDPOINT')  # noqa: E501
     if self.webhook_addr:
       res = self.setWebhook(self.webhook_addr)
       if not res.ok:
@@ -62,14 +61,14 @@ class Autogram(Bot):
           return
         if not res.json()['result']['url']:
           return
-      except:
+      except Exception:
         return
     # delete webhook and exit
     try:
       res = self.deleteWebhook()
       if not res.ok:
         raise RuntimeError()
-    except Exception as e:
+    except Exception:
       self.logger.critical('/deleteWebhook failed!')
     finally:
       self.terminate.set()

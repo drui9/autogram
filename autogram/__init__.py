@@ -17,8 +17,8 @@ chat_actions = ChatActionTypes(
     'upload_document'
   )
 #
-from autogram.config import Start
-from autogram.app import Autogram
+from autogram.config import Start  # noqa: E402
+from autogram.app import Autogram  # noqa: E402
 
 __all__ = [
   'Start', 'Autogram', 'chat_actions'

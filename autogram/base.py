@@ -10,7 +10,8 @@ from queue import Queue
 from requests.models import Response
 from autogram.webserver import WebServer
 from bottle import request, response, post, run, get
-from autogram.config import save_config, load_config
+from autogram.config import save_config
+from . import chat_actions
 
 
 class Bot():
@@ -26,7 +27,7 @@ class Bot():
     self.config = config or self.do_err(msg='Please pass a config <object :Dict>!')
     if not self.config.get("telegram-token"):
       self.config.update({
-          "telegram-token" : os.getenv('AUTOGRAM_TG_TOKEN') or self.do_err(msg='Missing bot token!')
+          "telegram-token" : os.getenv('AUTOGRAM_TG_TOKEN') or self.do_err(msg='Missing bot token!') # noqa: E501
         })
 
   def do_err(self, err_type =RuntimeError, msg ='Error!'):
@@ -62,17 +63,14 @@ class Bot():
     # keep-alive service
     def keep_alive():
       self.logger.info('Keep-alive started.')
-      try:
-        while not self.terminate.is_set():
-          time.sleep(10)
+      while not self.terminate.is_set():
+        try:
           res = self.requests.get(hook_addr)
           if not res.ok:
-            raise RuntimeError('Webhook address unreachable!')
-      except Exception as e:
-        self.logger.exception(e)
-      finally:
-        self.terminate.set()
-        self.logger.critical('Keep-alive service terminated.')
+            raise RuntimeError(f'Webhook {hook_addr} unreachable: {res.status_code}')
+        except Exception as e:
+          self.logger.exception(e)
+        time.sleep(10)
     # start keep-alive
     alive_guard = threading.Thread(target=keep_alive)
     alive_guard.name = 'Autogram:Keep-alive'
@@ -134,8 +132,8 @@ class Bot():
             self.updates.put(update)
           self.logger.critical(f'offset: {offset}')
           # rate-limit
-          poll_time = 2
-          time.sleep(poll_time)
+          poll_interval = 2
+          time.sleep(poll_interval)
       return
     poll = threading.Thread(target=getter)
     poll.name = 'Autogram:short_polling'
@@ -217,7 +215,7 @@ class Bot():
     }
     return self.requests.get(url, **params)
 
-  def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}) -> Response:
+  def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}) -> Response:  # noqa: E501
     """Edit message caption"""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/editMessageCaption'
     params = {
@@ -229,7 +227,7 @@ class Bot():
     }
     return self.requests.get(url, **params)
 
-  def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}) -> Response:
+  def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}) -> Response:  # noqa: E501
     """Edit reply markup"""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/editMessageReplyMarkup'
     params = {
@@ -253,7 +251,7 @@ class Bot():
     }
     return self.requests.get(url, **params)
 
-  def answerCallbackQuery(self, query_id, text :str|None =None, params : dict|None =None) -> Response:
+  def answerCallbackQuery(self, query_id, text :str|None =None, params : dict|None =None) -> Response:  # noqa: E501
     """Answers callback queries with text: str of len(text) < 200"""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/answerCallbackQuery'
     params = params or {}
@@ -264,7 +262,7 @@ class Bot():
     })
     return self.requests.get(url, params=params)
 
-  def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:
+  def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends a photo to a telegram user"""
     params = params or {}
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendPhoto'
@@ -275,7 +273,7 @@ class Bot():
     self.sendChatAction(chat_id, chat_actions.photo)
     return self.requests.get(url, params=params, files={'photo': photo_bytes})
 
-  def sendAudio(self,chat_id: int,audio :bytes, caption: str|None = None, params: dict|None = None) -> Response:
+  def sendAudio(self,chat_id: int,audio :bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends an audio to a telegram user"""
     params = params or {}
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendAudio'
@@ -286,7 +284,7 @@ class Bot():
     self.sendChatAction(chat_id, chat_actions.audio)
     return self.requests.get(url, params=params, files={'audio': audio})
 
-  def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:
+  def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends a document to a telegram user"""
     params = params or {}
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendDocument'
@@ -297,7 +295,7 @@ class Bot():
     self.sendChatAction(chat_id, chat_actions.document)
     self.requests.get(url, params=params, files={'document': document_bytes})
 
-  def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str|None = None, params: dict|None = None ) -> Response:
+  def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str|None = None, params: dict|None = None ) -> Response:  # noqa: E501
     """Sends a video to a telegram user"""
     params = params or {}
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendVideo'
