@@ -114,8 +114,7 @@ class Bot():
             }
           }
           res = self.getUpdates(**data)
-        except requests.exceptions.ReadTimeout as e:
-          self.logger.critical(str(e))
+        except Exception:
           time.sleep(2)
           continue
         #
@@ -130,7 +129,6 @@ class Bot():
           for update in updates:
             offset = update['update_id'] + 1
             self.updates.put(update)
-          self.logger.critical(f'offset: {offset}')
           # rate-limit
           poll_interval = 2
           time.sleep(poll_interval)
@@ -273,7 +271,7 @@ class Bot():
     self.sendChatAction(chat_id, chat_actions.photo)
     return self.requests.get(url, params=params, files={'photo': photo_bytes})
 
-  def sendAudio(self,chat_id: int,audio :bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
+  def sendAudio(self,chat_id: int,audio :bytes|str, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends an audio to a telegram user"""
     params = params or {}
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendAudio'
@@ -282,7 +280,10 @@ class Bot():
       'caption': caption
     }
     self.sendChatAction(chat_id, chat_actions.audio)
-    return self.requests.get(url, params=params, files={'audio': audio})
+    if isinstance(audio, bytes):
+      return self.requests.get(url, params=params, files={'audio': audio})
+    params.update({'audio': audio})
+    return self.requests.get(url, params=params)
 
   def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends a document to a telegram user"""
