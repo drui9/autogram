@@ -68,8 +68,8 @@ class Bot():
           res = self.requests.get(hook_addr)
           if not res.ok:
             self.logger.debug('Ngrok tunnel disconnected!')
-        except Exception as e:
-          self.logger.exception(e)
+        except Exception:
+          self.logger.debug('Connection error.')
         time.sleep(3)
     # start keep-alive
     alive_guard = threading.Thread(target=keep_alive)
