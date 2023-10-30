@@ -67,10 +67,10 @@ class Bot():
         try:
           res = self.requests.get(hook_addr)
           if not res.ok:
-            raise RuntimeError(f'Webhook {hook_addr} unreachable: {res.status_code}')
+            self.logger.debug('Ngrok tunnel disconnected!')
         except Exception as e:
           self.logger.exception(e)
-        time.sleep(10)
+        time.sleep(3)
     # start keep-alive
     alive_guard = threading.Thread(target=keep_alive)
     alive_guard.name = 'Autogram:Keep-alive'
