@@ -1,31 +1,12 @@
 import json
-import loguru
-import threading
-import requests
-from queue import Queue
+from updates import endpoint
 from requests.models import Response
 from . import chat_actions
 
 
 class Bot():
-  endpoint = 'https://api.telegram.org/'
-
-  def __init__(self) -> None:
-    """Initialize parent database object"""
-    super().__init__()
-    self.updates = Queue()
-    self.logger = loguru.logger
-    self.terminate = threading.Event()
-    self.requests = requests.session()
-
-  def getMe(self) -> Response:
-    """Fetch `bot` information"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/getMe'
-    return self.requests.get(url)
-
-  def getUpdates(self, **kwargs) -> Response:
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/getUpdates'
-    return self.requests.get(url, **kwargs)
+  def __init__(self):
+    pass
 
   def downloadFile(self, file_path: str) -> Response:
     """Downloads a file with file_path got from getFile(...)"""
@@ -34,22 +15,22 @@ class Bot():
 
   def getFile(self, file_id: str) -> Response:
     """Gets details of file with file_id"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/getFile'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/getFile'
     return self.requests.get(url, params={'file_id': file_id})
 
   def getChat(self, chat_id: int) -> Response:
     """Gets information on chat_id"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/getChat'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/getChat'
     return self.requests.get(url, params={'chat_id': chat_id})
 
   def getWebhookInfo(self) -> Response:
     """Gets information on currently set webhook"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/getWebhookInfo'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/getWebhookInfo'
     return self.requests.get(url)
 
   def sendChatAction(self, chat_id: int, action: str) -> Response:
     """Sends `action` to chat_id"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendChatAction'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendChatAction'
     params = {
       'chat_id': chat_id,
       'action': action
@@ -58,7 +39,7 @@ class Bot():
 
   def sendMessage(self, chat_id :int|str, text :str, **kwargs) -> Response:
     """Sends `text` to `chat_id`"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendMessage'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendMessage'
     params = {
     'params': {
       'chat_id': chat_id,
@@ -69,7 +50,7 @@ class Bot():
 
   def deleteMessage(self, chat_id: int, msg_id: int) -> Response:
     """Deletes message sent <24hrs ago"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/deleteMessage'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/deleteMessage'
     params= {
       'chat_id': chat_id,
       'message_id': msg_id
@@ -78,12 +59,12 @@ class Bot():
 
   def deleteWebhook(self, drop_pending = False) -> Response:
     """Deletes webhook value"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/deleteWebhook'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/deleteWebhook'
     return self.requests.get(url, params={'drop_pending_updates': drop_pending})
 
   def editMessageText(self, chat_id: int, msg_id: int, text: str, **kwargs) -> Response:
     """Edit message sent <24hrs ago"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/editMessageText'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/editMessageText'
     params = {
       'params': {
         'text':text,
@@ -95,7 +76,7 @@ class Bot():
 
   def editMessageCaption(self, chat_id: int, msg_id: int, capt: str, params={}) -> Response:  # noqa: E501
     """Edit message caption"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/editMessageCaption'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/editMessageCaption'
     params = {
       'params': {
       'chat_id': chat_id,
@@ -107,7 +88,7 @@ class Bot():
 
   def editMessageReplyMarkup(self, chat_id: int, msg_id: int, markup: str, params={}) -> Response:  # noqa: E501
     """Edit reply markup"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/editMessageReplyMarkup'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/editMessageReplyMarkup'
     params = {
     'params': {
       'chat_id':chat_id,
@@ -119,7 +100,7 @@ class Bot():
 
   def forwardMessage(self, chat_id: int, from_chat_id: int, msg_id: int) -> Response:
     """Forward message with message_id from from_chat_id to chat_id"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/forwardMessage'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/forwardMessage'
     params = {
     'params': {
       'chat_id': chat_id,
@@ -131,7 +112,7 @@ class Bot():
 
   def answerCallbackQuery(self, query_id, text :str|None =None, params : dict|None =None) -> Response:  # noqa: E501
     """Answers callback queries with text: str of len(text) < 200"""
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/answerCallbackQuery'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/answerCallbackQuery'
     params = params or {}
     text = text or 'Updated!'
     params.update({
@@ -143,7 +124,7 @@ class Bot():
   def sendPhoto(self,chat_id: int, photo_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends a photo to a telegram user"""
     params = params or {}
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendPhoto'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendPhoto'
     params.update({
       'chat_id':chat_id,
       'caption': caption,
@@ -154,7 +135,7 @@ class Bot():
   def sendAudio(self,chat_id: int,audio :bytes|str, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends an audio to a telegram user"""
     params = params or {}
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendAudio'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendAudio'
     params |= {
       'chat_id':chat_id,
       'caption': caption
@@ -168,7 +149,7 @@ class Bot():
   def sendDocument(self,chat_id: int ,document_bytes: bytes, caption: str|None = None, params: dict|None = None) -> Response:  # noqa: E501
     """Sends a document to a telegram user"""
     params = params or {}
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendDocument'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendDocument'
     params.update({
       'chat_id':chat_id,
       'caption':caption
@@ -179,7 +160,7 @@ class Bot():
   def sendVideo(self,chat_id: int ,video_bytes: bytes, caption: str|None = None, params: dict|None = None ) -> Response:  # noqa: E501
     """Sends a video to a telegram user"""
     params = params or {}
-    url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendVideo'
+    url = f'{endpoint}bot{self.settings("telegram-token")}/sendVideo'
     params.update({
       'chat_id':chat_id,
       'caption':caption

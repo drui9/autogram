@@ -26,7 +26,3 @@ class Autogram:
                 print(update)
             except queue.Empty:
                 continue
-        print('Terminated.')
-    
-    def __del__(self):
-        print('Deleted.')

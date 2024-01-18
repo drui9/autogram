@@ -51,8 +51,11 @@ class ShortPoll:
                 'id': 0,
                 'time': time.time()
             }
-            while not terminate.is_set():
-                the_get = threading.Timer(3, do_get, (prev_update,))
-                the_get.start()
-                the_get.join()
+            try:
+                while not terminate.is_set():
+                    the_get = threading.Timer(3, do_get, (prev_update,))
+                    the_get.start()
+                    the_get.join()
+            except KeyboardInterrupt:
+                terminate.set()
         return getUpdates()

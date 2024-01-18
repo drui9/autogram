@@ -8,3 +8,20 @@ This guide also works for linux. The file that needs to be replaced is located i
 - Now in the editor, click on the first byte (80) and start replacing each byte by: C6 40 05 01 48 85 C9
 - Finally, in the top left corner again, click on Export Button. This will download the file in your Downloads Folder.
 - Execute sudo cp ~/Downloads/sublime_text /opt/sublime_text/sublime_text to replace the original file.
+
+```python
+import requests
+
+def get_tunnel(key):
+    try:
+        header = {'Authorization': f'Bearer {key}', 'Ngrok-Version': '2'}
+        rep = requests.get('https://api.ngrok.com/tunnels', headers=header, timeout=10)
+        if rep.ok:
+            data = rep.json()
+            if len(data['tunnels']) != 1:
+                raise RuntimeError(data)
+            return data['tunnels'][-1]
+        raise RuntimeError(rep.content)
+    except Exception:
+        raise
+```
