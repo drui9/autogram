@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autogram"
-version = "3.4.4"
+version = "3.4.5"
 description = "An easily extensible telegram API wrapper"
 readme = "README.md"
-authors = [{ name = "sp3rtah", email = "ngaira14nelson@gmail.com" }]
+authors = [{ name = "droi9", email = "ngaira14nelson@gmail.com" }]
 license = { file = "LICENSE" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -29,4 +29,4 @@ requires-python = ">=3.6"
 dev = ["build", "twine"]
 
 [project.urls]
-Homepage = "https://github.com/sp3rtah/autogram"
+Homepage = "https://github.com/droi9/autogram"

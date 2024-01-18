@@ -2,3 +2,4 @@ sqlalchemy
 requests
 bottle
 loguru
+python-dotenv

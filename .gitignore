@@ -8,6 +8,7 @@ __pycache__/
 
 # config files
 *.json
+.env
 
 # temp dir 
 Downloads/
@@ -138,3 +139,4 @@ __pycache__/
 venv/
 files/
 *.log
+.venv

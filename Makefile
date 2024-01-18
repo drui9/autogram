@@ -1,8 +1,8 @@
 run:
-	@clear;./venv/bin/python3 start.py
+	@clear;./.venv/bin/python3 start.py
 
 build:
-	@./venv/bin/pip install build;./venv/bin/python3 -m build
+	@./.venv/bin/pip install build;./.venv/bin/python3 -m build
 
 clean:
 	@rm -rf dist build *.egg-info **/__pycache__/
