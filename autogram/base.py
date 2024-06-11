@@ -1,48 +1,59 @@
-import os
 import re
 import json
 import requests
 from typing import Any
 from loguru import logger
 from . import chat_actions
+from threading import Lock
 from requests.models import Response
 from autogram.config import save_config
 
 # --
 class Bot():
   endpoint = 'https://api.telegram.org/'
-
+  register = {
+    'lock': Lock(),
+    'handlers': dict()
+  }
+  #--
+  @classmethod
+  def add(cls, name: str):
+    def wrapper(fn):
+      with cls.register['lock']:
+        cls.register['handlers'] |= {name : fn}
+      return fn
+    return wrapper
+  #--
   def __init__(self, config :dict) -> None:
-    """Initialize parent database object"""
-    super().__init__()
     self.requests = requests.session()
     self.config = config or self.do_err(msg='Please pass a config <object :Dict>!')
     if not self.config.get("telegram-token"):
-      self.config.update({
-          "telegram-token" : os.getenv('AUTOGRAM_TG_TOKEN') or self.do_err(msg='Missing bot token!') # noqa: E501
-        })
+      self.do_err(msg='Missing bot token!')
 
   def do_err(self, msg :str, err_type =RuntimeError):
-    """Clean terminate the program on errors."""
+    """Utility: Raise error"""
+    logger.critical(msg)
     raise err_type(msg)
 
-  def settings(self, key :str, val: Any|None=None):
-    """Get or set value of key in config"""
-    if val:
-       self.config.update({key: val})
-       save_config(self.config)
-       return val
-    elif not (ret := self.config.get(key)):
-      self.do_err(msg=f'Missing key in config: {key}')
+  def data(self, key :str, val :Any|None=None):
+    """Persistent data storage"""
+    if 'data' not in self.config:
+      self.config['data'] = dict()
+    if val != None:
+      self.config['data'].update({key:val})
+      return save_config(self.config)
+    elif (ret := self.config['data'].get(key)) == None:
+      self.do_err(f'Key[{key}] not in store!', err_type=KeyError)
     return ret
 
-  def media_quality(self):
-    """Get preffered media quality."""
-    if (quality := self.settings("media-quality").lower() or 'low') == 'low':
-      return 0
-    elif quality == 'high':
-      return 2
-    return 1
+  def settings(self, key :str, val: Any|None=None, save=False):
+    """Get or set value of key in config"""
+    if val != None:
+      self.config.update({key: val})
+      return save_config(self.config)
+    elif (ret := self.config.get(key)) == None:
+      self.do_err(msg=f'Missing key in config: {key}', err_type=KeyError)
+    return ret
 
   def setWebhook(self, hook_addr : str):
     if not re.search('^(https?):\\/\\/[^\\s/$.?#].[^\\s]*$', hook_addr):
@@ -56,14 +67,16 @@ class Bot():
 
   def poll(self, offset=0, limit=10, timeout=7):
     """Poll updates"""
-    data = {
-      'timeout': timeout,
-      'params': {
-        'offset': offset,
-        'limit': limit,
-        'timeout': timeout // 2
+    with self.register['lock']:
+      data = {
+        'timeout': timeout,
+        'params': {
+          'allowed_updates': json.dumps(list(self.register['handlers'].keys())),
+          'timeout': timeout // 2,
+          'offset': offset,
+          'limit': limit,
+        }
       }
-    }
     return self.getUpdates(**data)
 
   def getMe(self) -> Response:

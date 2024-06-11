@@ -18,7 +18,7 @@ chat_actions = ChatActionTypes(
   )
 #
 from autogram.config import Start  # noqa: E402
-from autogram.app import Autogram  # noqa: E402
+from autogram.autogram import Autogram  # noqa: E402
 
 __all__ = [
   'Start', 'Autogram', 'chat_actions'
