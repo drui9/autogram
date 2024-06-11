@@ -1,0 +1,26 @@
+
+```json
+/start
+message: {'message': {'message_id': 9, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'chat': {'id': 5342492667, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'type': 'private'}, 'date': 1718145034, 'text': '/start', 'entities': [{'offset': 0, 'length': 6, 'type': 'bot_command'}]}}
+```
+```json
+Added to group
+my_chat_member: {'my_chat_member': {'chat': {'id': -4208910892, 'title': 'Testing', 'type': 'group', 'all_members_are_administrators': True}, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'date': 1718145080, 'old_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'left'}, 'new_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'member'}}}
+message: {'message': {'message_id': 10, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'chat': {'id': -4208910892, 'title': 'Testing', 'type': 'group', 'all_members_are_administrators': True}, 'date': 1718145080, 'new_chat_participant': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'new_chat_member': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'new_chat_members': [{'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}]}}
+```
+```json
+Promoted to admin:
+my_chat_member: {'my_chat_member': {'chat': {'id': -1002226686715, 'title': 'Testing', 'type': 'supergroup'}, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'date': 1718145528, 'old_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'member'}, 'new_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'administrator', 'can_be_edited': False, 'can_manage_chat': True, 'can_change_info': True, 'can_delete_messages': True, 'can_invite_users': True, 'can_restrict_members': True, 'can_pin_messages': True, 'can_manage_topics': True, 'can_promote_members': False, 'can_manage_video_chats': True, 'can_post_stories': True, 'can_edit_stories': True, 'can_delete_stories': True, 'is_anonymous': False, 'can_manage_voice_chats': True}}}
+```
+```json
+Update Admin: anonymous + add new admins
+my_chat_member: {'my_chat_member': {'chat': {'id': -1002226686715, 'title': 'Testing', 'type': 'supergroup'}, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'date': 1718145591, 'old_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'administrator', 'can_be_edited': False, 'can_manage_chat': True, 'can_change_info': True, 'can_delete_messages': True, 'can_invite_users': True, 'can_restrict_members': True, 'can_pin_messages': True, 'can_manage_topics': True, 'can_promote_members': False, 'can_manage_video_chats': True, 'can_post_stories': True, 'can_edit_stories': True, 'can_delete_stories': True, 'is_anonymous': False, 'can_manage_voice_chats': True}, 'new_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'administrator', 'can_be_edited': False, 'can_manage_chat': True, 'can_change_info': True, 'can_delete_messages': True, 'can_invite_users': True, 'can_restrict_members': True, 'can_pin_messages': True, 'can_manage_topics': True, 'can_promote_members': True, 'can_manage_video_chats': True, 'can_post_stories': True, 'can_edit_stories': True, 'can_delete_stories': True, 'is_anonymous': True, 'can_manage_voice_chats': True}}}
+```
+```json
+Demoted from admin:
+my_chat_member: {'my_chat_member': {'chat': {'id': -1002226686715, 'title': 'Testing', 'type': 'supergroup'}, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'date': 1718145470, 'old_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'administrator', 'can_be_edited': False, 'can_manage_chat': True, 'can_change_info': True, 'can_delete_messages': True, 'can_invite_users': True, 'can_restrict_members': True, 'can_pin_messages': True, 'can_manage_topics': True, 'can_promote_members': True, 'can_manage_video_chats': True, 'can_post_stories': True, 'can_edit_stories': True, 'can_delete_stories': True, 'is_anonymous': True, 'can_manage_voice_chats': True, 'custom_title': 'Help'}, 'new_chat_member': {'user': {'id': 7176805831, 'is_bot': True, 'first_name': 'Vladd', 'username': 'drui9s_bot'}, 'status': 'member'}}}
+```
+```json
+Group message: enable access to messages
+message: {'message': {'message_id': 2, 'from': {'id': 5342492667, 'is_bot': False, 'first_name': '001', 'last_name': 'drui9', 'username': 'drui909', 'language_code': 'en'}, 'chat': {'id': -1002226686715, 'title': 'Testing', 'type': 'supergroup'}, 'date': 1718145430, 'text': 'Hi'}}
+```

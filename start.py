@@ -1,3 +1,4 @@
+import time
 from autogram import Autogram
 from autogram.config import load_config, Start
 
@@ -52,8 +53,10 @@ def chat_join_request(bot, update):
     print('chat_join_request:', update)
 
 #***************************** <start>
-@Start(config_file='web-auto.json')
+@Start()
 def main(config):
     bot = Autogram(config)
-    bot.run()
+    while True:
+        bot.run()
+        time.sleep(5)
 #-- </start>
