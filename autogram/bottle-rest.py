@@ -27,3 +27,9 @@ class WebServer(WSGIRefServer):
 
   def shutdown(self):
     self.srv.shutdown()
+
+# server = WebServer(host="0.0.0.0", port=self.settings('lport'))
+# serv_thread = threading.Thread(target=runServer, args=(server,))
+# serv_thread.name = 'Autogram:Bottle'
+# serv_thread.daemon = True
+# serv_thread.start()

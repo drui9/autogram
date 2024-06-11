@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from loguru import logger
-from typing import Callable, Dict
+from typing import Callable
 
 default_config = {
   'lport': 4004,
@@ -26,7 +26,7 @@ def load_config(config_file : str, config_path : str):
     config |= json.load(conf)
   return config
 
-def save_config(config :Dict):
+def save_config(config :dict):
   """config-file must be in the dictionary"""
   try:
     conffile = config.pop('config-file')
@@ -50,4 +50,8 @@ def Start(config_file :str|None =None, config_path :str|None =None):
   return wrapper
 #
 
-__all__ = [ "Start", "save_config", "load_config"]
+__all__ = [
+  "Start",
+  "save_config",
+  "load_config"
+]

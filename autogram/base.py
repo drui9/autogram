@@ -1,28 +1,20 @@
 import os
 import re
-import time
 import json
-import loguru
-import threading
 import requests
 from typing import Any
-from queue import Queue
-from requests.models import Response
-from autogram.webserver import WebServer
-from bottle import request, response, post, run, get
-from autogram.config import save_config
+from loguru import logger
 from . import chat_actions
+from requests.models import Response
+from autogram.config import save_config
 
-
+# --
 class Bot():
   endpoint = 'https://api.telegram.org/'
 
   def __init__(self, config :dict) -> None:
     """Initialize parent database object"""
     super().__init__()
-    self.updates = Queue()
-    self.logger = loguru.logger
-    self.terminate = threading.Event()
     self.requests = requests.session()
     self.config = config or self.do_err(msg='Please pass a config <object :Dict>!')
     if not self.config.get("telegram-token"):
@@ -30,9 +22,8 @@ class Bot():
           "telegram-token" : os.getenv('AUTOGRAM_TG_TOKEN') or self.do_err(msg='Missing bot token!') # noqa: E501
         })
 
-  def do_err(self, err_type =RuntimeError, msg ='Error!'):
+  def do_err(self, msg :str, err_type =RuntimeError):
     """Clean terminate the program on errors."""
-    self.terminate.set()
     raise err_type(msg)
 
   def settings(self, key :str, val: Any|None=None):
@@ -56,87 +47,24 @@ class Bot():
   def setWebhook(self, hook_addr : str):
     if not re.search('^(https?):\\/\\/[^\\s/$.?#].[^\\s]*$', hook_addr):
       raise RuntimeError('Invalid webhook url. format <https://...>')
-    # ensure hook_addr stays reachable
-    @get('/')
-    def ping():
-      return json.dumps({'ok': True})
-    # keep-alive service
-    def keep_alive():
-      self.logger.info('Keep-alive started.')
-      while not self.terminate.is_set():
-        try:
-          res = self.requests.get(hook_addr)
-          if not res.ok:
-            self.logger.debug('Ngrok tunnel disconnected!')
-        except Exception:
-          self.logger.debug('Connection error.')
-        time.sleep(3)
-    # start keep-alive
-    alive_guard = threading.Thread(target=keep_alive)
-    alive_guard.name = 'Autogram:Keep-alive'
-    alive_guard.daemon = True
-    alive_guard.start()
-    # receive updates
-    @post('/')
-    def hookHandler():
-      response.content_type = 'application/json'
-      self.updates.put(request.json)
-      return json.dumps({'ok': True})
-    #
-    def runServer(server: Any):
-      return run(server=server, quiet=True)
-    #
-    server = WebServer(host="0.0.0.0", port=self.settings('lport'))
-    serv_thread = threading.Thread(target=runServer, args=(server,))
-    serv_thread.name = 'Autogram:Bottle'
-    serv_thread.daemon = True
-    serv_thread.start()
-    # inform telegram
+    #--
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/setWebhook'
     params = {
       'url': hook_addr
     }
     return self.requests.get(url, params=params)
 
-  def short_poll(self):
-    """Start fetching updates in seperate thread"""
-    def getter():
-      failed = False
-      offset = 0
-      while not self.terminate.is_set():
-        try:
-          data = {
-            'timeout': 3,
-            'params': {
-              'offset': offset,
-              'limit': 10,
-              'timeout': 1
-            }
-          }
-          res = self.getUpdates(**data)
-        except Exception:
-          time.sleep(2)
-          continue
-        #
-        if not res.ok:
-          if not failed:
-            time.sleep(2)
-            failed = True
-          else:
-            self.terminate.set()
-        else:
-          updates = res.json()['result']
-          for update in updates:
-            offset = update['update_id'] + 1
-            self.updates.put(update)
-          # rate-limit
-          poll_interval = 2
-          time.sleep(poll_interval)
-      return
-    poll = threading.Thread(target=getter)
-    poll.name = 'Autogram:short_polling'
-    poll.daemon = True
-    poll.start()
+  def poll(self, offset=0, limit=10, timeout=7):
+    """Poll updates"""
+    data = {
+      'timeout': timeout,
+      'params': {
+        'offset': offset,
+        'limit': limit,
+        'timeout': timeout // 2
+      }
+    }
+    return self.getUpdates(**data)
 
   def getMe(self) -> Response:
     """Fetch `bot` information"""
