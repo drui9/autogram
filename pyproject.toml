@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autogram"
-version = "3.5.0"
+version = "3.6.0"
 description = "An easily extensible telegram API wrapper"
 readme = "README.md"
 authors = [{ name = "droi9", email = "ngaira14nelson@gmail.com" }]
@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-keywords = ["telegram", "API", "wrapper"]
+keywords = ["autogram", "telegram", "API", "wrapper"]
 dependencies = [
 	"loguru>=0.7.2",
 	"requests>=2.32.3",

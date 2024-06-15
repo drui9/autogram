@@ -1,62 +1,47 @@
+"""
+@author: drui9
+@description: Example usage
+"""
 import time
-from autogram import Autogram
-from autogram.config import load_config, Start
+from loguru import logger
+from autogram import Autogram, Start
 
-#--
-@Autogram.add('message')
-def message(bot, update):
-    print('message:', update)
+# --
+class ExampleBot(Autogram):
+    def __init__(self, config):
+        super().__init__(config)
 
-#--
-@Autogram.add('edited_message')
-def edited_message(bot, update):
-    print('edited_message:', update)
+    def run(self):
+        """Custom implementation of bot.poll()"""
+        super().run() # initializes bot info, abstractmethod
+        for _ in range(10): # should be endless loop
+            offset = self.data('offset') # fetch persisted offset
+            for rep in self.poll(offset=offset).json()['result']:
+              self.data('offset', rep.pop('update_id') + 1) # persist new offset
+              with self.register['lock']: # ensure handlers are not modified during call
+                if handler := self.register['handlers'].get(list(rep.keys())[-1]):
+                    handler(self, self, rep) # call handler. Maybe try except?
+            time.sleep(5) # not required for webhooks
 
-#--
-@Autogram.add('channel_post')
-def channel_post(bot, update):
-    print('channel_post:', update)
+    @Autogram.add('message')
+    def message(self, bot: Autogram, update):
+        logger.debug(update['message']['text'])
+        chat_id = update['message']['chat']['id']
+        keyb = [[{'text': 'The armpit', 'callback_data': 'tickled'}]]
+        data = {
+            'reply_markup': bot.getInlineKeyboardMarkup(keyb)
+        }
+        bot.sendMessage(chat_id, 'Tickle me!', **data)
 
-#--
-@Autogram.add('edited_channel_post')
-def edited_channel_post(bot, update):
-    print('edited_channel_post:', update)
-
-#--
-@Autogram.add('callback_query')
-def callback_query(bot, update):
-    print('callback_query:', update)
-
-#--
-@Autogram.add('message_reaction')
-def message_reaction(bot, update):
-    print('message_reaction:', update)
-
-#--
-@Autogram.add('message_reaction_count')
-def message_reaction_count(bot, update):
-    print('message_reaction_count:', update)
-
-#--
-@Autogram.add('chat_member')
-def chat_member(bot, update):
-    print('chat_member:', update)
-
-#--
-@Autogram.add('my_chat_member')
-def my_chat_member(bot, update):
-    print('my_chat_member:', update)
-
-#--
-@Autogram.add('chat_join_request')
-def chat_join_request(bot, update):
-    print('chat_join_request:', update)
+    # --
+    @Autogram.add('callback_query')
+    def callback_query(self, bot: Autogram, update):
+        callback_id = update['callback_query']['id']
+        bot.answerCallbackQuery(callback_id, 'Ha-ha-ha')
 
 #***************************** <start>
 @Start()
 def main(config):
-    bot = Autogram(config)
-    while True:
-        bot.run()
-        time.sleep(5)
-#-- </start>
+    bot = ExampleBot(config)
+    bot.run()
+# ************ </start>
