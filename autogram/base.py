@@ -3,7 +3,6 @@ import json
 import requests
 from abc import ABC
 from typing import Any
-from loguru import logger
 from . import chat_actions
 from threading import Lock
 from requests.models import Response
@@ -86,7 +85,7 @@ class Bot(ABC):
 
   def downloadFile(self, file_path: str) -> Response:
     """Downloads a file with file_path got from getFile(...)"""
-    url = f'https://api.telegram.org/file/bot{self.settings("telegram-token")}/{file_path}'
+    url = f'{self.endpoint}file/bot{self.settings("telegram-token")}/{file_path}'
     return self.requests.get(url)
 
   def getFile(self, file_id: str) -> Response:
