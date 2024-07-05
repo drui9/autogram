@@ -2,7 +2,6 @@
     <img src="https://raw.githubusercontent.com/drui9/autogram/main/autogram.png" align="middle" alt="Autogram">
 <p>
 
-## Installation :: 
 Autogram is a telegram bot-API wrapper written in python3, with a keen focus on remaining stupidly simple.
 
 ## QuickStart

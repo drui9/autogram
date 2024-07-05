@@ -27,14 +27,9 @@ class Bot(ABC):
   #--
   def __init__(self, config :dict) -> None:
     self.requests = requests.session()
-    self.config = config or self.do_err(msg='Please pass a config <object :Dict>!')
-    if not self.config.get("telegram-token"):
-      self.do_err(msg='Missing bot token!')
-
-  def do_err(self, msg :str, err_type: Any =RuntimeError):
-    """Utility: Raise error"""
-    logger.critical(msg)
-    raise err_type(msg)
+    assert config, 'Missing bot configuration dictionary'
+    self.config = config
+    assert self.config.get("telegram-token"), 'Missing bot token!'
 
   def data(self, key :str, val :Any|None=None) -> Any:
     """Persistent data storage"""
@@ -43,18 +38,14 @@ class Bot(ABC):
     if val != None:
       self.config['data'].update({key:val})
       return save_config(self.config)
-    elif (ret := self.config['data'].get(key)) == None:
-      return self.do_err(f'Key[{key}] not in store!', err_type=KeyError)
-    return ret
+    return self.config['data'].get(key)
 
   def settings(self, key :str, val: Any|None=None) -> Any:
     """Get or set value of key in config"""
     if val != None:
       self.config.update({key: val})
       return save_config(self.config)
-    elif (ret := self.config.get(key)) == None:
-      return self.do_err(msg=f'Missing key in config: {key}', err_type=KeyError)
-    return ret
+    return self.config.get(key)
 
   def setWebhook(self, hook_addr : str, **kwargs):
     """kwargs update setWebhook parameters with higher precendence. Existing(url, allowed_updates)"""
@@ -195,52 +186,64 @@ class Bot(ABC):
     } | kwargs
     return self.requests.get(url, params=params)
 
-  def sendPhoto(self,chat_id: int, photo: bytes|str, caption: str|None = None, **kwargs) -> Response:  # noqa: E501
+  def sendPhoto(self,chat_id: int, photo: bytes|str, **kwargs) -> Response:  # noqa: E501
     """Sends a photo to a telegram user"""
+    """kwargs: caption, etc."""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendPhoto'
+    filename = kwargs.pop('filename') if 'filename' in kwargs else None
     params = {
-      'chat_id':chat_id,
-      'caption': caption,
+      'chat_id':chat_id
     } | kwargs
     self.sendChatAction(chat_id, chat_actions.photo)
     if isinstance(photo, str):
       return self.requests.get(url, params=params|{'photo': photo})
+    if filename:
+      return self.requests.get(url, params=params, files={'photo': (filename, photo)})
     return self.requests.get(url, params=params, files={'photo': photo})
 
-  def sendAudio(self,chat_id: int,audio :bytes|str, caption: str|None = None, **kwargs) -> Response:  # noqa: E501
+  def sendAudio(self,chat_id: int,audio :bytes|str, **kwargs) -> Response:  # noqa: E501
     """Sends an audio to a telegram user"""
+    """kwargs: caption, etc."""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendAudio'
+    filename = kwargs.pop('filename') if 'filename' in kwargs else None
     params = {
-      'chat_id':chat_id,
-      'caption': caption
+      'chat_id':chat_id
     } | kwargs
     self.sendChatAction(chat_id, chat_actions.audio)
     if isinstance(audio, str):
       return self.requests.get(url, params=params|{'audio': audio})
+    if filename:
+      return self.requests.get(url, params=params, files={'audio': (filename, audio)})
     return self.requests.get(url, params=params, files={'audio': audio})
 
-  def sendDocument(self,chat_id: int ,document: bytes|str, caption: str|None = None, **kwargs) -> Response:  # noqa: E501
+  def sendDocument(self,chat_id: int ,document: bytes|str, **kwargs) -> Response:  # noqa: E501
     """Sends a document to a telegram user"""
+    """kwargs: caption, etc."""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendDocument'
+    filename = kwargs.pop('filename') if 'filename' in kwargs else None
     params = {
-      'chat_id':chat_id,
-      'caption':caption
+      'chat_id':chat_id
     } | kwargs
     self.sendChatAction(chat_id, chat_actions.document)
     if isinstance(document, str):
       return self.requests.get(url, params=params|{'document': document})
+    if filename:
+      return self.requests.get(url, params=params, files={'document': (filename, document)})
     return self.requests.get(url, params=params, files={'document': document})
 
-  def sendVideo(self,chat_id: int ,video: bytes|str, caption: str|None = None, **kwargs) -> Response:  # noqa: E501
+  def sendVideo(self,chat_id: int ,video: bytes|str, **kwargs) -> Response:  # noqa: E501
     """Sends a video to a telegram user"""
+    """kwargs: caption, etc."""
     url = f'{self.endpoint}bot{self.settings("telegram-token")}/sendVideo'
+    filename = kwargs.pop('filename') if 'filename' in kwargs else None
     params = {
-      'chat_id':chat_id,
-      'caption':caption
+      'chat_id':chat_id
     } | kwargs
     self.sendChatAction(chat_id, chat_actions.video)
     if isinstance(video, str):
       return self.requests.get(url, params=params|{'video': video})
+    if filename:
+      return self.requests.get(url, params=params,files={'video': (filename, video)})
     return self.requests.get(url, params=params,files={'video':video})
 
   def forceReply(self, **kwargs) -> str:
@@ -259,7 +262,7 @@ class Bot(ABC):
 
   def getInlineKeyboardMarkup(self, keys: list, **kwargs) -> str:
     markup = {
-      'inline_keyboard':keys
+      'inline_keyboard': keys
     }|kwargs
     return json.dumps(markup)
 
