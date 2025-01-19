@@ -6,7 +6,8 @@ from datetime import datetime
 
 default_config = {
   'launch-date': datetime.now().ctime(),
-  'telegram-token': None
+  'telegram-token': None,
+  'proxies': dict()
 }
 
 def load_config(config_file : str, config_path : str):

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autogram"
-version = "3.6.1"
+version = "3.7.0"
 description = "An easily extensible telegram API wrapper"
 readme = "README.md"
 authors = [{ name = "drui9", email = "drui9@duck.com" }]
@@ -24,7 +24,11 @@ dependencies = [
 requires-python = ">=3.6"
 
 [project.optional-dependencies]
-dev = ["build", "twine"]
+dev = [
+    "build",
+    "twine",
+    "watchdog"
+]
 
 [project.urls]
 Homepage = "https://github.com/drui9/autogram"

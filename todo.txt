@@ -1,0 +1,8 @@
+# Features
+Private message:
+    - Attachments: audio, video, images, documents, poll, location
+
+Supergroup:
+    - Atachments
+    - Who added/kicked me?
+    -

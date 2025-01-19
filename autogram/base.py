@@ -3,8 +3,9 @@ import json
 import requests
 from abc import ABC
 from typing import Any
-from . import chat_actions
-from threading import Lock
+from . import ChatAction
+from loguru import logger
+from threading import Lock, Event
 from requests.models import Response
 from autogram.config import save_config
 
@@ -24,16 +25,19 @@ class Bot(ABC):
       return fn
     return wrapper
   #--
-  def __init__(self, config :dict) -> None:
-    self.requests = requests.session()
-    assert config, 'Missing bot configuration dictionary'
+  def __init__(self, initializer : Event, config :dict) -> None:
     self.config = config
+    self.requests = requests.session()
+    if proxies := config.get('proxies'):
+      self.requests.proxies = proxies
     assert self.config.get("telegram-token"), 'Missing bot token!'
+    # init complete
+    initializer.set()
+    logger.debug('initialization complete!')
 
   def data(self, key :str, val :Any|None=None) -> Any:
     """Persistent data storage"""
-    if 'data' not in self.config:
-      self.config['data'] = dict()
+    self.config['data'] = self.config.get('data') or dict()
     if val != None:
       self.config['data'].update({key:val})
       return save_config(self.config)
@@ -71,6 +75,7 @@ class Bot(ABC):
           'limit': limit,
         }
       }
+    logger.debug(data)
     return self.getUpdates(**data)
 
   def getMe(self) -> Response:
@@ -193,7 +198,7 @@ class Bot(ABC):
     params = {
       'chat_id':chat_id
     } | kwargs
-    self.sendChatAction(chat_id, chat_actions.photo)
+    self.sendChatAction(chat_id, ChatAction.photo)
     if isinstance(photo, str):
       return self.requests.get(url, params=params|{'photo': photo})
     if filename:
@@ -208,7 +213,7 @@ class Bot(ABC):
     params = {
       'chat_id':chat_id
     } | kwargs
-    self.sendChatAction(chat_id, chat_actions.audio)
+    self.sendChatAction(chat_id, ChatAction.audio)
     if isinstance(audio, str):
       return self.requests.get(url, params=params|{'audio': audio})
     if filename:
