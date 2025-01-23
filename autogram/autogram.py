@@ -2,6 +2,7 @@ from threading import Event
 from autogram.base import Bot
 from abc import abstractmethod
 
+
 # --
 class Autogram(Bot):
     def __init__(self, config):
@@ -21,5 +22,4 @@ class Autogram(Bot):
                 setattr(self, name, value)
             return self.initialized.set()
         else:
-            raise RuntimeError('Init failed!')
-
+            raise RuntimeError("Init failed!")
