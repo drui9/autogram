@@ -4,9 +4,26 @@
 """
 
 import time
+import requests
 from loguru import logger
 from threading import Event
 from autogram import Autogram, Start, Update, ChatAction
+from watchdog.observers import Observer
+from contextlib import contextmanager
+
+
+@contextmanager
+def autoreload(path: str):
+    event_handler = 1  # handler
+    observer = Observer()
+    observer.schedule(event_handler, path, recursive=True)
+    observer.start()
+    try:
+        while observer.is_alive():
+            observer.join(1)
+    finally:
+        observer.stop()
+        observer.join()
 
 
 # --
@@ -42,34 +59,43 @@ class ExampleBot(Autogram):
                         ):
                             handler(self, self, rep)  # call handler. Maybe try except?
                 time.sleep(4)  # rate limit
-            except Exception as e:
-                logger.critical("{}:{}", type(e), e)
+            except requests.exceptions.SSLError():
+                pass
+            except requests.exceptions.ReadTimeout:
+                pass
+            except requests.exceptions.ProxyError:
+                pass
+            except Exception:
+                logger.exception("what?")
 
     @Autogram.add(Update.message)
     def message(self, bot: Autogram, update):
-        logger.debug(update["message"]["text"])
-        chat_id = update["message"]["chat"]["id"]
-        keyb = [
-            [
-                {"text": "Buy", "callback_data": "open-boy"},
-                {"text": "Cancel", "callback_data": "buy-cancel"},
-            ]
-        ]
-        data = {"reply_markup": bot.getInlineKeyboardMarkup(keyb)}
-        bot.sendMessage(chat_id, "Tickle me!", **data)
+        logger.debug(update)
+        # logger.debug(update["message"]["text"])
+        # chat_id = update["message"]["chat"]["id"]
+        # keyb = [
+        #     [
+        #         {"text": "Buy", "callback_data": "open-boy"},
+        #         {"text": "Cancel", "callback_data": "buy-cancel"},
+        #     ]
+        # ]
+        # data = {"reply_markup": bot.getInlineKeyboardMarkup(keyb)}
+        # bot.sendMessage(chat_id, "Tickle me!", **data)
 
     # --
     @Autogram.add(Update.callback)
     def callback_query(self, bot: Autogram, update):
-        callback_id = update["callback_query"]["id"]
-        bot.answerCallbackQuery(callback_id, "Ha-ha-ha")
+        logger.debug(update)
+        # callback_id = update["callback_query"]["id"]
+        # bot.answerCallbackQuery(callback_id, "Ha-ha-ha")
 
     @Autogram.add(Update.my_chat_member)
     def my_chat_member(self, bot: Autogram, update):
         logger.debug(update)
 
-    # todo:
-    # @Autogram.add(Update.channel_post)
+    @Autogram.add(Update.channel_post)
+    def channel_post(self, bot: Autogram, update):
+        logger.debug(update)
 
 
 # ***************************** <start>
@@ -80,26 +106,3 @@ def main(config):
 
 
 # ************ </start>
-
-# import sys
-# import logging
-# from watchdog.observers import Observer
-# from watchdog.events import LoggingEventHandler
-
-# if __name__ == "__main__":
-#     logging.basicConfig(
-#         level=logging.INFO,
-#         format="%(asctime)s - %(message)s",
-#         datefmt="%Y-%m-%d %H:%M:%S",
-#     )
-#     path = sys.argv[1] if len(sys.argv) > 1 else "."
-#     event_handler = LoggingEventHandler()
-#     observer = Observer()
-#     observer.schedule(event_handler, path, recursive=True)
-#     observer.start()
-#     try:
-#         while observer.is_alive():
-#             observer.join(1)
-#     finally:
-#         observer.stop()
-#         observer.join()

@@ -7,7 +7,4 @@ from enum import StrEnum
 from autogram.config import Start
 from autogram.autogram import Autogram
 
-__all__ = [
-  'Start', 'Autogram', 'ChatAction', 'Update'
-]
-
+__all__ = ["Start", "Autogram", "ChatAction", "Update"]
